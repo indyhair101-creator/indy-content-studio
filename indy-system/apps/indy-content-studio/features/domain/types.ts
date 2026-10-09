@@ -187,6 +187,8 @@ export interface IntegrationStatus {
 }
 
 export interface DashboardState {
+  reporting?: import("../reports/report-types").ReportingState;
+  statusHistory?: import("../reports/report-types").WorkStatusEvent[];
   schemaVersion: 1;
   contents: ContentItem[];
   actionTasks: ActionTask[];
