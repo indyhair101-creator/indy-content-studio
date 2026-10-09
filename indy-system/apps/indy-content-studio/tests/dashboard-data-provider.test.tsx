@@ -89,7 +89,8 @@ describe("DashboardDataProvider", () => {
     expect(firstRefresh).toBe(secondRefresh);
     expect(read).toHaveBeenCalledTimes(1);
     await act(async () => { releaseWrite(); await Promise.all([write, firstRefresh, secondRefresh]); });
-    expect(read).toHaveBeenCalledTimes(2);
+    // One authoritative read after save, then the coalesced requested refresh.
+    expect(read).toHaveBeenCalledTimes(3);
     expect(data.state?.contents.map((content) => content.id)).toEqual(["saved"]);
   });
 

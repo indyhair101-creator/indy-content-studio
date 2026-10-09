@@ -3,6 +3,7 @@ import { validateDashboardBackup } from "../../backup/export-dashboard";
 import { createEmptyDashboardState } from "../../domain/create-empty-state";
 import type { DashboardState } from "../../domain/types";
 import { createNeonExecutor, type SqlExecutor } from "./neon-client";
+import { captureWorkStatusHistory } from "../../reports/work-status-history";
 
 const WORKSPACE_KEY = "primary";
 
@@ -72,7 +73,7 @@ export class NeonDashboardRepository {
     // the authoritative check makes this compare-and-swap fail instead of racing.
     const rows = await this.execute(
       "UPDATE dashboard_snapshots SET state = $2, version = version + 1, updated_at = now() WHERE workspace_key = $1 AND version = $3 RETURNING version",
-      [WORKSPACE_KEY, validated, expectedVersion],
+      [WORKSPACE_KEY, captureWorkStatusHistory(currentSnapshot.state, validated), expectedVersion],
     );
     if (rows.length === 0) throw new StaleDashboardStateError();
     return { version: numericVersion(rows[0].version) };
