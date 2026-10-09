@@ -1,7 +1,8 @@
 import type { DashboardState } from "../../domain/types";
 import type { AnalysisEvidence, AnalysisRequest } from "../report-analysis";
-import { inReportRange } from "../report-dates";
 import { selectTeamReport } from "../team-report-selectors";
+import { INSIGHT_METRICS, metricObservations, selectInsightPublications } from "../insight-selectors";
+import type { MetricObservation } from "../report-types";
 
 const LIMIT = 60;
 export function buildReportAnalysisEvidence(state: DashboardState, request: AnalysisRequest, now = new Date().toISOString()): { evidence: AnalysisEvidence[]; warnings: string[] } {
@@ -16,33 +17,20 @@ export function buildReportAnalysisEvidence(state: DashboardState, request: Anal
     if (report.unknownCompletion) warnings.push(`งานเสร็จ ${report.unknownCompletion} งานไม่มีหลักฐานวันเสร็จ ห้ามอนุมานจากเวลาแก้ไขล่าสุด`);
     warnings.push("ห้ามจัดอันดับคุณค่าหรือประสิทธิภาพคนด้วยยอดวิว; การแบ่งงานเป็นข้อเสนอ ไม่เปลี่ยนผู้รับผิดชอบอัตโนมัติ");
   } else {
-    const reporting = state.reporting;
-    const publications = (reporting?.publications ?? []).filter((post) => {
-      const content = state.contents.find((item) => item.id === post.contentId && !item.deletedAt);
-      return content && (!request.sourceContentId || content.id === request.sourceContentId)
-        && (filters.platform === "all" || post.platform === filters.platform) && (!filters.accountId || post.accountId === filters.accountId)
-        && (!filters.owner || content.owner === filters.owner) && (!filters.categoryId || content.categoryId === filters.categoryId)
-        && (!filters.formatId || content.formatId === filters.formatId) && (!filters.objective || content.objective === filters.objective)
-        && (!filters.videoOnly || post.mediaKind === "video")
-        && (filters.minDuration === null || post.durationSeconds !== null && post.durationSeconds >= filters.minDuration)
-        && (filters.maxDuration === null || post.durationSeconds !== null && post.durationSeconds <= filters.maxDuration)
-        && (filters.dateBasis === "activity" || inReportRange(post.publishedAt, filters.range));
+    // Reuse the UI's physical identity, conflicting-match, traffic and timestamp rules.
+    const rows = selectInsightPublications(state, filters).filter((row) => !request.sourceContentId || row.content.id === request.sourceContentId);
+    const records = rows.flatMap((row) => {
+      const selected = new Map<string, MetricObservation>();
+      for (const metric of INSIGHT_METRICS) for (const observation of metricObservations(row.observations, metric)) {
+        const record = selected.get(observation.id) ?? { ...observation, metrics: {} };
+        // A snapshot may supply one metric while its overlapping metrics were superseded.
+        record.metrics[metric] = observation.metrics[metric];
+        selected.set(observation.id, record);
+      }
+      return [...selected.values()].map((observation) => ({ observation, post: row.publication, content: row.content }));
     });
-    let observations = (reporting?.observations ?? []).filter((observation) => publications.some((post) => post.id === observation.publicationId)
-      && (filters.traffic === "any" || observation.traffic === filters.traffic)
-      && (filters.dateBasis === "published" ? observation.scope === "lifetime" : observation.scope === "activity" && observation.period !== null && observation.period.start >= filters.range.start && observation.period.end <= filters.range.end)
-      && Object.values(observation.metrics).some((value) => typeof value === "number"));
-    // A refreshed copy of the same period is not additional performance.
-    const latest = new Map<string, typeof observations[number]>();
-    for (const observation of observations) {
-      const key = JSON.stringify([observation.publicationId, observation.scope, observation.period, observation.traffic]);
-      const existing = latest.get(key);
-      if (!existing || existing.fetchedAt < observation.fetchedAt) latest.set(key, observation);
-    }
-    observations = [...latest.values()];
-    for (const observation of observations.slice(0, LIMIT)) {
-      const post = publications.find((item) => item.id === observation.publicationId)!;
-      const content = state.contents.find((item) => item.id === post.contentId)!;
+    const observations = records.map((record) => record.observation);
+    for (const { observation, post, content } of records.slice(0, LIMIT)) {
       evidence.push({ id: `observation:${observation.id}`, contentId: content.id, entityId: content.id, label: `${content.title.slice(0, 220)} · ${post.platform} · ${observation.sourceLabel.slice(0, 80)}`, data: {
         post: { id: post.id, platform: post.platform, accountId: post.accountId, publishedAt: post.publishedAt, mediaKind: post.mediaKind, durationSeconds: post.durationSeconds },
         observation: { ...observation, retention: observation.retention?.slice(0, 100) ?? null },

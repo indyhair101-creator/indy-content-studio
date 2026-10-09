@@ -5,7 +5,8 @@ export type DashboardListener = (state: DashboardState) => void;
 
 export interface DashboardRepository {
   read(): Promise<DashboardState>;
-  write(next: DashboardState): Promise<void>;
+  /** A returned state is the authoritative persisted snapshot, never the submitted guess. */
+  write(next: DashboardState): Promise<DashboardState | void>;
   subscribe(listener: DashboardListener): () => void;
 }
 

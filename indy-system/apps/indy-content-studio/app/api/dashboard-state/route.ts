@@ -16,7 +16,7 @@ export async function PUT(request: Request): Promise<Response> {
     if (!input.state || !Number.isSafeInteger(input.expectedVersion)) {
       return Response.json({ error: "invalid_dashboard_request" }, { status: 400 });
     }
-    return Response.json(await new NeonDashboardRepository().saveDashboardState(input.state, input.expectedVersion as number));
+    return Response.json(await new NeonDashboardRepository().saveDashboardState(input.state, input.expectedVersion as number, { includeState: true }));
   } catch (error) {
     if (error instanceof StaleDashboardStateError) {
       return Response.json({ error: "stale_dashboard_state" }, { status: 409 });

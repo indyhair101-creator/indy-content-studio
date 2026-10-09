@@ -6,7 +6,7 @@ import { createReportSuggestionDraft, type ReportAnalysisResponse, type ReportSu
 
 const ERROR_LABELS: Record<string, string> = { unauthorized: "กรุณาเข้าสู่ระบบใหม่", invalid_origin: "ไม่สามารถยืนยันหน้าที่เรียกใช้งานได้ กรุณาโหลดหน้าใหม่", report_ai_not_configured: "AI รายงานยังไม่ได้ตั้งค่ารุ่นโมเดลหรือการเชื่อมต่อบนเซิร์ฟเวอร์", insufficient_evidence: "ยังไม่มีหลักฐานเพียงพอในตัวกรองนี้ กรุณานำเข้าข้อมูลหรือเลือกช่วงอื่น", evidence_too_large: "ข้อมูลมากเกินไป กรุณาลดช่วงเวลาหรือเลือกคอนเทนต์เดียว", invalid_ai_response: "คำตอบ AI อ้างอิงข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง กรุณาลองใหม่", incomplete_ai_response: "AI ยังตอบไม่ครบ กรุณาลดขอบเขตข้อมูลแล้วลองใหม่", report_ai_unavailable: "AI ไม่พร้อมใช้งานชั่วคราว กรุณาลองใหม่" };
 export function ReportAnalysisPanel({ kind, filters, sourceContentId, onOpenContent }: { kind: "team" | "content"; filters: ReportFilters; sourceContentId?: string; onOpenContent?: (id: string) => void }) {
-  const { mutate } = useDashboardData();
+  const { mutate, error: dashboardError } = useDashboardData();
   const [result, setResult] = useState<ReportAnalysisResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
@@ -41,6 +41,7 @@ export function ReportAnalysisPanel({ kind, filters, sourceContentId, onOpenCont
   return <section className="report-panel report-analysis"><div className="report-header"><div><h2>AI วิเคราะห์{kind === "team" ? "การทำงานของทีม" : "ผลคอนเทนต์"}</h2><p>กดเพื่อส่งข้อมูลในตัวกรองนี้ให้ AI วิเคราะห์ แยกข้อเท็จจริง ข้อสันนิษฐาน และการทดลอง</p></div><button type="button" disabled={busy} onClick={() => void analyze()}>{busy ? "กำลังวิเคราะห์…" : "วิเคราะห์ด้วย AI"}</button></div>
     <p className="report-note">ข้อเสนอเป็นร่างสำหรับตรวจทาน ยังไม่มีการเปลี่ยนผู้รับผิดชอบหรือเผยแพร่อัตโนมัติ การวิเคราะห์อาจมีค่าใช้บริการโมเดลตามบัญชีที่ตั้งค่าไว้</p>
     {error && <p role="alert">{error}</p>}
+    {!error && dashboardError && <p role="alert">{dashboardError.message}</p>}
     {result && <><p className="report-note">โมเดล {result.model} · {new Date(result.generatedAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} · หลักฐาน {result.evidence.length} รายการ</p>
       <h3>ข้อเท็จจริงจากข้อมูล</h3>{result.analysis.facts.map((item, index) => <article className="report-card" key={index}><p>{item.text}</p>{citations(item.evidenceIds)}</article>)}{!result.analysis.facts.length && <p>ไม่มีข้อเท็จจริงเพิ่มเติมที่ AI ยืนยันจากชุดข้อมูลนี้</p>}
       <h3>ข้อสันนิษฐานที่ยังไม่ยืนยัน</h3>{result.analysis.hypotheses.map((item, index) => <article className="report-card" key={index}><p>{item.text}</p>{citations(item.evidenceIds)}</article>)}

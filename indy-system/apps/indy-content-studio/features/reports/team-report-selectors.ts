@@ -15,7 +15,7 @@ const doneContent = (status: string) => status === "published";
 function completionEvent(events: WorkStatusEvent[], status: string, isContent: boolean): WorkStatusEvent | null {
   const done = isContent ? doneContent : (value: string) => value === "done";
   if (!done(status)) return null;
-  const ordered = [...events].sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+  const ordered = [...events].sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
   let completion: WorkStatusEvent | null = null;
   for (const event of ordered) {
     if (!done(event.to)) completion = null;
@@ -70,7 +70,7 @@ export function selectTeamReport(state: DashboardState, filters: ReportFilters, 
     return { owner, contents: ownerRows.filter((row) => row.kind === "content").length, actions: ownerRows.filter((row) => row.kind === "action-task").length, ...summarize(ownerRows), backlog: backlog.filter((row) => row.owner === owner).length, rows: [...ownerRows, ...backlog.filter((row) => row.owner === owner)] };
   });
   const steps: TeamStepRow[] = contents.flatMap((content) => content.processSteps.map((step) => {
-    const events = history.filter((event) => event.entity === "step" && event.contentId === content.id && event.entityId === step.id).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+    const events = history.filter((event) => event.entity === "step" && event.contentId === content.id && event.entityId === step.id).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt));
     const latest = events.at(-1);
     const ageDays = latest?.to === step.status && latest.source !== "import" ? Math.max(0, Math.floor((Date.parse(now) - Date.parse(latest.occurredAt)) / 86_400_000)) : null;
     return { id: step.id, contentId: content.id, contentTitle: content.title, name: step.name, owner: content.owner, status: step.status, dueDate: step.scheduledDate, ageDays, autoClosed: step.status === "done" && !!latest && (latest.source === "manual-publication" || latest.source === "publication-sync") };

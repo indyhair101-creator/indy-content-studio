@@ -65,6 +65,25 @@ function Probe() {
 }
 
 describe("DashboardDataProvider", () => {
+  it("resolves a committed mutation when its refresh fails and exposes a visible refresh warning", async () => {
+    const repository = new MemoryDashboardRepository();
+    let data!: DashboardDataValue;
+    function Capture() { data = useDashboardData(); return data.error ? <p role="alert">{data.error.message}</p> : null; }
+    render(<DashboardDataProvider repository={repository}><Capture /></DashboardDataProvider>);
+    await waitFor(() => expect(data.status).toBe("ready"));
+    const originalRead = repository.read.bind(repository);
+    const write = vi.spyOn(repository, "write");
+    repository.read = async () => { throw new Error("refresh offline"); };
+    await act(async () => { await expect(data.mutate((state) => upsertContent(state, contentFixture("committed")))).resolves.toBeUndefined(); });
+    expect((await originalRead()).contents.map((item) => item.id)).toEqual(["committed"]);
+    expect(screen.getByRole("alert")).toHaveTextContent("บันทึกสำเร็จ");
+    expect(screen.getByRole("alert")).toHaveTextContent("โหลดข้อมูลล่าสุด");
+    await act(async () => { await expect(data.mutate((state) => upsertContent(state, contentFixture("unsafe-next")))).rejects.toThrow("refresh offline"); });
+    expect(write).toHaveBeenCalledOnce();
+    repository.read = originalRead;
+    await act(async () => { await data.mutate((state) => upsertContent(state, contentFixture("confirmed-next"))); });
+    expect((await originalRead()).contents.map((item) => item.id)).toEqual(["committed", "confirmed-next"]);
+  });
   it("serializes refresh with writes and coalesces overlapping refresh requests", async () => {
     const repository = new MemoryDashboardRepository();
     const originalWrite = repository.write.bind(repository);

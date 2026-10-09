@@ -29,7 +29,7 @@ export class ApiDashboardRepository implements DashboardRepository {
     return cloneDashboardState(payload.state);
   }
 
-  async write(next: DashboardState): Promise<void> {
+  async write(next: DashboardState): Promise<DashboardState | void> {
     if (this.version === null) await this.read();
     const response = await fetch("/api/dashboard-state", {
       method: "PUT",
@@ -38,15 +38,18 @@ export class ApiDashboardRepository implements DashboardRepository {
     });
     if (response.status === 409) throw new Error("ข้อมูลถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่");
     if (!response.ok) throw new Error("บันทึกข้อมูลลงเซิร์ฟเวอร์ไม่สำเร็จ");
-    const payload = await response.json() as { version: number };
+    const payload = await response.json() as { version: number; state?: DashboardState };
     if (this.version !== null && payload.version < this.version && this.snapshot) {
       this.listeners.forEach((listener) => listener(cloneDashboardState(this.snapshot!)));
-      return;
+      return cloneDashboardState(this.snapshot);
     }
     this.version = payload.version;
-    const snapshot = cloneDashboardState(next);
+    // Older servers acknowledge only the revision: the caller must refresh in that case.
+    if (!payload.state) return;
+    const snapshot = cloneDashboardState(payload.state);
     this.snapshot = snapshot;
     this.listeners.forEach((listener) => listener(cloneDashboardState(snapshot)));
+    return cloneDashboardState(snapshot);
   }
 
   subscribe(listener: DashboardListener): () => void {

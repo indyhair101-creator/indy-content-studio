@@ -41,12 +41,14 @@ export function DashboardDataProvider({
   const [status, setStatus] = useState<DashboardLoadStatus>("loading");
   const [error, setError] = useState<Error | null>(null);
   const stateRef = useRef<DashboardState | null>(null);
+  const needsConfirmedReadRef = useRef(false);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
   const loadPromiseRef = useRef<Promise<void> | null>(null);
 
   const applySnapshot = useCallback((next: DashboardState) => {
     const snapshot = cloneDashboardState(next);
     stateRef.current = snapshot;
+    needsConfirmedReadRef.current = false;
     setState(snapshot);
     setStatus("ready");
     setError(null);
@@ -99,13 +101,13 @@ export function DashboardDataProvider({
 
   const mutate = useCallback(async (mutation: DashboardMutation) => {
     const run = async () => {
-      if (!stateRef.current) {
+      if (!stateRef.current || needsConfirmedReadRef.current) {
         try {
           applySnapshot(await activeRepository.read());
         } catch (caught) {
           const nextError = caught instanceof Error ? caught : new Error("โหลดข้อมูลไม่สำเร็จ");
           setError(nextError);
-          setStatus("error");
+          if (!stateRef.current) setStatus("error");
           throw nextError;
         }
       }
@@ -114,9 +116,16 @@ export function DashboardDataProvider({
 
       try {
         const next = mutation(cloneDashboardState(current));
-        await activeRepository.write(next);
-        // The server appends authoritative status evidence while saving.
-        applySnapshot(await activeRepository.read());
+        const persisted = await activeRepository.write(next);
+        if (persisted) applySnapshot(persisted);
+        else {
+          // The commit succeeded. A failed follow-up read must not invite a duplicate save.
+          try { applySnapshot(await activeRepository.read()); }
+          catch {
+            needsConfirmedReadRef.current = true;
+            setError(new Error("บันทึกสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ กรุณาโหลดใหม่ก่อนแก้ไขต่อ"));
+          }
+        }
       } catch (caught) {
         const nextError = caught instanceof Error ? caught : new Error("บันทึกข้อมูลไม่สำเร็จ");
         setError(nextError);

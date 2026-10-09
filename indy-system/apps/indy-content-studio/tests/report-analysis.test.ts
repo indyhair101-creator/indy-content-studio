@@ -22,6 +22,16 @@ async function request(body: unknown = { kind: "content", filters }, origin: str
 function remote(value: unknown = analysis()) { return Response.json({ status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(value) }] }] }); }
 
 describe("report AI boundary", () => {
+  it("rejects conflicting physical post mappings and deduplicates aliases using the visible report rules", () => {
+    const state = fixture();
+    state.contents.push({ ...state.contents[0], id: "two", owner: "other" });
+    const publication = state.reporting!.publications[0];
+    state.reporting!.publications.push({ ...publication, id: "alias", contentId: "two" });
+    state.reporting!.observations.push({ ...state.reporting!.observations[0], id: "alias-obs", publicationId: "alias", fetchedAt: "2026-10-09T03:00:00Z" });
+    expect(buildReportAnalysisEvidence(state, { kind: "content", filters }).evidence).toHaveLength(0);
+    state.reporting!.publications[1].contentId = "one";
+    expect(buildReportAnalysisEvidence(state, { kind: "content", filters }).evidence.map((item) => item.id)).toEqual(["observation:alias-obs"]);
+  });
   it("requires authentication and same-origin before loading data or calling a model", async () => {
     const fetcher = vi.fn(); const loadState = vi.fn(async () => fixture());
     const handler = createReportAnalysisHandler({ env, fetch: fetcher, loadState });

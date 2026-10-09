@@ -18,6 +18,26 @@ function content(id = "one", patch: Partial<ContentItem> = {}): ContentItem {
 function fixture(): DashboardState { return { ...createEmptyDashboardState(), contents: [content()] }; }
 
 describe("authoritative status evidence", () => {
+  it("preserves known completion and step history when restoring the same item from trash", () => {
+    const state = fixture();
+    const completed = captureWorkStatusHistory(state, setCalendarContentStatus(state, ["one"], "published", at), at);
+    const trashed = captureWorkStatusHistory(completed, { ...completed, contents: [{ ...completed.contents[0], deletedAt: at }] }, at);
+    const restored = captureWorkStatusHistory(trashed, { ...trashed, contents: [{ ...trashed.contents[0], deletedAt: null }] }, "2026-10-09T03:00:00Z");
+    expect(restored.statusHistory).toEqual(completed.statusHistory);
+    expect(selectTeamReport(restored, filters, at).completed[0].completion?.occurredAt).toBe(at);
+  });
+  it("orders imported offset timestamps by instant, preserving the latest completion and lateness", () => {
+    const state = fixture(); state.contents[0].productionStatus = "published";
+    const base = { entity: "content" as const, contentId: "one", entityId: "one", owner: "ทีม", scheduledDate: "2026-10-08", source: "observed" as const };
+    state.statusHistory = [
+      { ...base, id: "a", from: "editing", to: "published", occurredAt: "2026-10-08T23:00:00+07:00" },
+      { ...base, id: "b", from: "published", to: "editing", occurredAt: "2026-10-08T16:30:00Z" },
+      { ...base, id: "c", from: "editing", to: "published", occurredAt: "2026-10-08T17:00:00Z" },
+    ];
+    const report = selectTeamReport(state, filters, at);
+    expect(report.completed[0].completion?.id).toBe("c");
+    expect(report.late).toBe(1);
+  });
   it("captures manual publication and automatic step closure once, preserving server evidence against stale clients", () => {
     const state = fixture();
     const next = captureWorkStatusHistory(state, setCalendarContentStatus(state, ["one"], "published", at), at);
@@ -72,8 +92,10 @@ describe("authoritative status evidence", () => {
       if (query.startsWith("UPDATE")) { stored = params[1] as DashboardState; return [{ version: ++version }]; }
       throw new Error(query);
     } });
-    await repository.saveDashboardState(setCalendarContentStatus(stored, ["one"], "published", at), version);
+    const saved = await repository.saveDashboardState(setCalendarContentStatus(stored, ["one"], "published", at), version, { includeState: true });
     expect(stored.statusHistory).toHaveLength(2);
+    expect(saved.state).toEqual(stored);
+    expect(saved.state?.statusHistory).toHaveLength(2);
     const backup = exportDashboardState(stored);
     backup.data.statusHistory![0].scheduledDate = "2026-02-30";
     expect(() => validateDashboardBackup(backup)).toThrow("ประวัติสถานะ");
