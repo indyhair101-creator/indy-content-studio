@@ -16,6 +16,8 @@ describe("all navigation workspaces", () => {
       ["Reference และไอเดีย", "Reference และไอเดีย"],
       ["แม่แบบแคปชั่น", "แม่แบบแคปชั่น"],
       ["ส่งโพสต์ผ่าน Make", "ส่งโพสต์ผ่าน Make"],
+      ["Report การทำงานของทีม", "การทำงานของทีม"],
+      ["Report ข้อมูลเชิงลึก", "Report ข้อมูลเชิงลึก"],
       ["ตั้งค่าและข้อมูล", "ตั้งค่าและข้อมูล"],
     ] as const;
     for (const [label, heading] of workspaces) {

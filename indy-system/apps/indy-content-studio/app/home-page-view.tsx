@@ -26,6 +26,12 @@ import { MakeDeliveryWorkspace } from "../features/publication/components/MakeDe
 import { IndexedDbMediaBlobStore } from "../features/media/indexeddb-media-blob-store";
 import type { MediaBlobStore } from "../features/media/media-blob-store";
 import { uploadMediaToBlob } from "../features/media/blob-media-upload";
+import { TeamReportWorkspace } from "../features/reports/components/TeamReportWorkspace";
+import { InsightsReportWorkspace } from "../features/reports/components/InsightsReportWorkspace";
+import { ReportActions, SavedReportsPanel } from "../features/reports/components/SavedReportsPanel";
+import { ReportConnectionsPanel } from "../features/reports/components/ReportConnectionsPanel";
+import { ReportImportPanel } from "../features/reports/components/ReportImportPanel";
+import { ReportAnalysisPanel } from "../features/reports/components/ReportAnalysisPanel";
 
 type LineConnectionView = {
   view: "loading" | "authenticated" | "unauthenticated" | "error";
@@ -318,6 +324,22 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
         setFullEditorOpen(true);
       }} />}
       {activeWorkspace === "make-delivery" && <MakeDeliveryWorkspace />}
+      {activeWorkspace === "team-report" && <TeamReportWorkspace
+        onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }}
+        onOpenActionPlan={() => setActiveWorkspace("action-plan")}
+        renderActions={(filters) => <ReportActions kind="team" filters={filters} />}
+        renderAnalysis={(filters) => <ReportAnalysisPanel kind="team" filters={filters} onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }} />}
+        renderSaved={() => <SavedReportsPanel kind="team" />}
+      />}
+      {activeWorkspace === "content-report" && <>
+        <InsightsReportWorkspace
+          onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }}
+          renderActions={(filters) => <ReportActions kind="content" filters={filters} />}
+          renderAnalysis={(filters) => <ReportAnalysisPanel kind="content" filters={filters} onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }} />}
+          renderSaved={() => <SavedReportsPanel kind="content" />}
+          renderSources={(filters) => <details className="report-panel"><summary>เชื่อมต่อและนำเข้าข้อมูล</summary><ReportConnectionsPanel range={filters.range} /><ReportImportPanel /></details>}
+        />
+      </>}
       <CreateContentModal open={workspace.isCreateOpen} onClose={() => { workspace.setCreateOpen(false); setCreateInitialDate(""); }} onCreate={createTask} categories={dashboard.state?.categories.map((category) => category.name) ?? []} formats={dashboard.state?.formats.map((format) => format.name) ?? []} ownerOptions={dashboard.state?.ownerOptions ?? []} initialDate={createInitialDate} allowedPlatformsByFormat={Object.fromEntries((dashboard.state?.formats ?? []).map((format) => [format.name, format.allowedPlatforms]))} />
     </main>
   </AppShell>;

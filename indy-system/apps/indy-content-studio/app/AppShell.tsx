@@ -12,6 +12,8 @@ export const navigationItems = [
   { id: "references", label: "Reference และไอเดีย", icon: "✦" },
   { id: "caption-templates", label: "แม่แบบแคปชั่น", icon: "≡" },
   { id: "make-delivery", label: "ส่งโพสต์ผ่าน Make", icon: "↗" },
+  { id: "team-report", label: "Report การทำงานของทีม", icon: "☷" },
+  { id: "content-report", label: "Report ข้อมูลเชิงลึก", icon: "▥" },
   { id: "settings", label: "ตั้งค่าและข้อมูล", icon: "⚙" },
 ] as const;
 
