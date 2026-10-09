@@ -50,7 +50,7 @@ export class NeonDashboardRepository {
     return { version: numericVersion(rows[0].version), state: validateState(rows[0].state) };
   }
 
-  async saveDashboardState(state: DashboardState, expectedVersion: number): Promise<{ version: number }> {
+  async saveDashboardState(state: DashboardState, expectedVersion: number, options: { includeState?: boolean } = {}): Promise<{ version: number; state?: DashboardState }> {
     const validated = validateState(state);
     const currentSnapshot = await this.loadDashboardState();
     if (currentSnapshot.version !== expectedVersion) throw new StaleDashboardStateError();
@@ -71,12 +71,13 @@ export class NeonDashboardRepository {
     }
     // Enqueue also advances this revision, so a job that appears after
     // the authoritative check makes this compare-and-swap fail instead of racing.
+    const persisted = captureWorkStatusHistory(currentSnapshot.state, validated);
     const rows = await this.execute(
       "UPDATE dashboard_snapshots SET state = $2, version = version + 1, updated_at = now() WHERE workspace_key = $1 AND version = $3 RETURNING version",
-      [WORKSPACE_KEY, captureWorkStatusHistory(currentSnapshot.state, validated), expectedVersion],
+      [WORKSPACE_KEY, persisted, expectedVersion],
     );
     if (rows.length === 0) throw new StaleDashboardStateError();
-    return { version: numericVersion(rows[0].version) };
+    return { version: numericVersion(rows[0].version), ...(options.includeState ? { state: persisted } : {}) };
   }
 }
 

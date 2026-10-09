@@ -8,7 +8,7 @@ import { defaultReportFilters } from "../features/reports/report-dates";
 import type { ContentItem } from "../features/domain/types";
 afterEach(() => vi.unstubAllGlobals());
 describe("explicit AI report actions", () => {
-  it("does not generate on load; analyzes only on click and creates a reset draft only on the save button", async () => {
+  it.each([false, true])("does not generate on load and saves a draft exactly once (refresh fails: %s)", async (refreshFails) => {
     const state = createEmptyDashboardState();
     const content: ContentItem = { id: "one", title: "ต้นฉบับ", categoryId: "category-knowledge", formatId: "format-video", owner: "ทีม", objective: "awareness", priority: "normal", plannedWorkAt: null, lastWorkedAt: null, readyDate: null, productionStatus: "published", assetIds: [], processSteps: [], caption: "เดิม", captionSource: null, schedules: [], referenceIds: [], notes: "", localApproval: "approved", lineReview: { status: "approved", activeCycleId: null, reviewCode: null, providerReceipts: [], lastEventAt: null, history: [] }, createdAt: "2026-10-09T00:00:00Z", updatedAt: "2026-10-09T00:00:00Z", deletedAt: null };
     state.contents = [content];
@@ -20,11 +20,15 @@ describe("explicit AI report actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "วิเคราะห์ด้วย AI" }));
     expect(await screen.findByText("มี 10 views")).toBeVisible();
     expect((await repository.read()).contents).toHaveLength(1);
+    const confirmedRead = repository.read.bind(repository);
+    if (refreshFails) repository.read = async () => { throw new Error("refresh offline"); };
     fireEvent.click(screen.getByRole("button", { name: "บันทึกข้อเสนอเป็นงานร่าง" }));
-    await waitFor(async () => expect((await repository.read()).contents).toHaveLength(2));
-    expect((await repository.read()).contents[1]).toMatchObject({ title: "ร่างตอนต่อไป", caption: "แคปชัน", productionStatus: "waiting-shoot", localApproval: "pending" });
+    await waitFor(async () => expect((await confirmedRead()).contents).toHaveLength(2));
+    expect((await confirmedRead()).contents[1]).toMatchObject({ title: "ร่างตอนต่อไป", caption: "แคปชัน", productionStatus: "waiting-shoot", localApproval: "pending" });
     expect(fetcher).toHaveBeenCalledOnce();
     expect(await screen.findByRole("status")).toHaveTextContent("บันทึกเป็นงานร่างแล้ว");
+    expect(screen.queryByRole("button", { name: "บันทึกข้อเสนอเป็นงานร่าง" })).not.toBeInTheDocument();
+    if (refreshFails) expect(screen.getByRole("alert")).toHaveTextContent("บันทึกสำเร็จแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ");
   });
   it("shows configuration failure without inventing an AI result", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "report_ai_not_configured" }, { status: 503 })));

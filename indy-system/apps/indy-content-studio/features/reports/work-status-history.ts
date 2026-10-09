@@ -11,9 +11,9 @@ export function workDate(value: string | null): string | null {
 }
 
 type Work = Omit<WorkStatusEvent, "id" | "from" | "occurredAt" | "source">;
-function works(state: DashboardState): Work[] {
+function works(state: DashboardState, includeDeleted = false): Work[] {
   return [
-    ...state.contents.filter((item) => !item.deletedAt).flatMap((item): Work[] => [
+    ...state.contents.filter((item) => includeDeleted || !item.deletedAt).flatMap((item): Work[] => [
       { entity: "content", entityId: item.id, contentId: item.id, to: item.productionStatus, owner: item.owner, scheduledDate: workDate(item.readyDate ?? item.plannedWorkAt) },
       ...item.processSteps.map((step): Work => ({ entity: "step", entityId: step.id, contentId: item.id, to: step.status, owner: item.owner, scheduledDate: step.scheduledDate })),
     ]),
@@ -29,7 +29,8 @@ export function captureWorkStatusHistory(previous: DashboardState, next: Dashboa
   // Only the explicit backup importer can supply additional historical evidence.
   const imported = (next.statusHistory ?? []).filter((event) => !known.has(event.id) && event.id.startsWith("import:"));
   for (const event of imported) { history.push({ ...event }); known.add(event.id); }
-  const before = new Map(works(previous).map((work) => [key(work), work]));
+  // Trash keeps identity and status; restoring it is not a newly created work item.
+  const before = new Map(works(previous, true).map((work) => [key(work), work]));
   for (const work of works(next)) {
     const old = before.get(key(work));
     if (old?.to === work.to) continue;
@@ -54,11 +55,11 @@ export function importWorkStatusHistory(current: DashboardState, next: Dashboard
     if (ids.has(event.id) || ids.has(id)) continue;
     preserved.push({ ...event, id }); ids.add(id);
   }
-  const before = new Map(works(current).map((work) => [key(work), work]));
+  const before = new Map(works(current, true).map((work) => [key(work), work]));
   for (const work of works(next)) {
     if (before.get(key(work))?.to === work.to) continue;
     // A baseline invalidates an old completion after restoring/reopening a record.
-    const latest = preserved.filter((event) => key(event) === key(work)).sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)).at(-1);
+    const latest = preserved.filter((event) => key(event) === key(work)).sort((a, b) => Date.parse(a.occurredAt) - Date.parse(b.occurredAt)).at(-1);
     if (latest?.to === work.to && incoming.some((event) => event.id === latest.id || `import:${event.id}` === latest.id)) continue;
     preserved.push({ ...work, id: `import:baseline:${key(work)}:${occurredAt}`, from: null, occurredAt, source: "import" });
   }
