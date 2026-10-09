@@ -60,6 +60,12 @@ export function validateReportingState(value:unknown):ReportingState {
  if(!result.success)throw new Error("ข้อมูลรายงานไม่ถูกต้อง: "+result.error.issues[0]?.message);
  const data=result.data as ReportingState;
  const publications=unique(data.publications,"โพสต์");
+ const physicalPosts=new Set<string>();
+ for(const publication of data.publications) {
+  const identity=JSON.stringify([publication.platform,publication.accountId,publication.providerPostId]);
+  if(physicalPosts.has(identity))throw new Error("โพสต์จริงเดียวกันมีหลาย ID กรุณาใช้ ID เดิมของช่องทางและบัญชีนี้");
+  physicalPosts.add(identity);
+ }
  unique(data.connections,"บัญชี"); unique(data.observations,"ตัวเลข"); unique(data.savedReports,"รายงาน");
  for(const o of data.observations) if(!publications.has(o.publicationId)) throw new Error("ตัวเลขอ้างถึงโพสต์ที่ไม่มี");
  return data;
@@ -77,13 +83,29 @@ export function parseReportImport(value:unknown):ReportImport {
  return {schemaVersion:1,publications:normalized.publications,observations:normalized.observations.map(o=>({...o,source:"import"}))};
 }
 export function mergeReportImport(current:ReportingState,incoming:ReportImport):ReportingState {
- const next=structuredClone(current);
- for(const p of incoming.publications) {
-  const old=next.publications.find(x=>x.id===p.id);
+ const next=structuredClone(validateReportingState(current));
+ // Validate at the merge boundary too: callers cannot bypass import provenance by skipping the parser.
+ const normalized=parseReportImport(incoming);
+ const publications=new Map(next.publications.map(p=>[p.id,p]));
+ for(const p of normalized.publications) {
+  const old=publications.get(p.id);
   if(old && (old.platform!==p.platform || old.accountId!==p.accountId || old.providerPostId!==p.providerPostId))throw new Error("ID โพสต์ซ้ำแต่เป็นคนละโพสต์ กรุณาแก้ไฟล์ก่อนนำเข้า");
-  if(!old)next.publications.push(p); else Object.assign(old,p,{contentId:old.contentId??p.contentId});
+  if(!old){next.publications.push(p);publications.set(p.id,p);} else Object.assign(old,p,{contentId:old.contentId??p.contentId});
  }
- const ids=new Set(next.observations.map(o=>o.id));
- for(const o of incoming.observations) if(!ids.has(o.id)){next.observations.push(o);ids.add(o.id);}
+ const observations=new Map(next.observations.map(o=>[o.id,o]));
+ for(const observation of normalized.observations) {
+  const old=observations.get(observation.id);
+  if(old) {
+   // An exported API snapshot re-imported unchanged is the same measurement. Keep its
+   // existing trusted provenance; all other fields, including sourceLabel and basis, must match.
+   if(JSON.stringify(canonical({...old,source:"import"}))!==JSON.stringify(canonical(observation)))
+    throw new Error("ID ตัวเลขซ้ำแต่ค่าหรือแหล่งข้อมูลต่างกัน กรุณาใช้ ID ใหม่สำหรับ snapshot ใหม่");
+  } else {next.observations.push(observation);observations.set(observation.id,observation);}
+ }
  return validateReportingState(next);
+}
+function canonical(value:unknown):unknown {
+ if(Array.isArray(value))return value.map(canonical);
+ if(value!==null&&typeof value==="object")return Object.fromEntries(Object.entries(value).filter(([,v])=>v!==undefined).sort(([a],[b])=>a.localeCompare(b)).map(([key,v])=>[key,canonical(v)]));
+ return value;
 }
