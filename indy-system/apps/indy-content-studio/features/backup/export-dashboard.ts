@@ -1,4 +1,6 @@
 import type { DashboardState } from "../domain/types";
+import { validateWorkStatusHistory } from "../reports/work-status-history";
+import { validateReportingState } from "../reports/report-schema";
 import { DEFAULT_OWNER_OPTIONS } from "../domain/create-empty-state";
 import { DashboardBackupValidationError, type DashboardBackupV1, type DashboardImportMode, type DashboardImportPreview } from "./backup-schema";
 
@@ -31,6 +33,8 @@ export function validateDashboardBackup(input: unknown): DashboardBackupV1 {
   const backup = input as Partial<DashboardBackupV1>;
   if (backup.product !== "INDY Content Studio" || backup.schemaVersion !== 1 || typeof backup.exportedAt !== "string" || !backup.data) throw new DashboardBackupValidationError("ไม่รองรับไฟล์สำรองนี้");
   const rawData = backup.data as DashboardBackupV1["data"];
+  try { validateWorkStatusHistory(rawData.statusHistory); } catch { throw new DashboardBackupValidationError("ประวัติสถานะไม่ถูกต้อง"); }
+  try { if (rawData.reporting !== undefined) validateReportingState(rawData.reporting); } catch (error) { throw new DashboardBackupValidationError(error instanceof Error ? error.message : "ข้อมูลรายงานไม่ถูกต้อง"); }
   const collections = ["contents", "media", "categories", "formats", "references", "captionTemplates", "corrections", "monthlyGoals", "publicationAttempts", "integrations"] as const;
   for (const collection of collections) {
     if (!Array.isArray(rawData[collection])) throw new DashboardBackupValidationError(`ข้อมูล ${collection} ไม่ถูกต้อง`);

@@ -1,4 +1,7 @@
 import type { DashboardState } from "../domain/types";
+import { importWorkStatusHistory } from "../reports/work-status-history";
+import { mergeReportImport } from "../reports/report-schema";
+import { emptyReportingState } from "../reports/report-types";
 import type { DashboardBackupV1, DashboardImportMode } from "./backup-schema";
 import { previewDashboardImport, validateDashboardBackup } from "./export-dashboard";
 
@@ -23,7 +26,7 @@ export interface ApplyDashboardImportOptions {
 export function applyDashboardImport(current: DashboardState, input: DashboardBackupV1, options: ApplyDashboardImportOptions): DashboardState {
   const backup = validateDashboardBackup(input);
   if (options.mode === "replace" && !options.preRestoreBackup) throw new Error("ต้องสร้าง backup ก่อนแทนที่ข้อมูล");
-  if (options.mode === "replace") return clone(backup.data) as DashboardState;
+  if (options.mode === "replace") return importWorkStatusHistory(current, clone(backup.data) as DashboardState, backup.data.statusHistory);
 
   const next = clone(current);
   const collections: BackupCollection[] = ["contents", "actionTasks", "media", "categories", "formats", "references", "captionTemplates", "corrections", "monthlyGoals", "categoryMonthlyGoals", "publicationAttempts", "integrations"];
@@ -39,7 +42,17 @@ export function applyDashboardImport(current: DashboardState, input: DashboardBa
   for (const owner of backup.data.ownerOptions) {
     if (!next.ownerOptions.some((current) => current.localeCompare(owner, undefined, { sensitivity: "accent" }) === 0)) next.ownerOptions.push(owner);
   }
-  return next;
+  if (backup.data.reporting) {
+    next.reporting = mergeReportImport(next.reporting ?? emptyReportingState(), { schemaVersion: 1, publications: backup.data.reporting.publications, observations: backup.data.reporting.observations });
+    for (const collection of ["connections", "savedReports"] as const) {
+      const ids = new Set(next.reporting[collection].map((item) => item.id));
+      const additions = backup.data.reporting[collection].filter((item) => !ids.has(item.id));
+      (next.reporting[collection] as unknown[]).push(...clone(additions));
+    }
+  }
+  const addedContentIds = new Set(next.contents.filter((item) => !current.contents.some((existing) => existing.id === item.id)).map((item) => item.id));
+  const addedTaskIds = new Set(next.actionTasks.filter((item) => !current.actionTasks.some((existing) => existing.id === item.id)).map((item) => item.id));
+  return importWorkStatusHistory(current, next, backup.data.statusHistory?.filter((event) => event.contentId ? addedContentIds.has(event.contentId) : addedTaskIds.has(event.entityId)));
 }
 
 export { parseDashboardBackup, validateDashboardBackup } from "./export-dashboard";

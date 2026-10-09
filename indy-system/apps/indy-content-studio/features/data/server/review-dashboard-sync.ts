@@ -94,8 +94,8 @@ export async function loadSyncedDashboardState(
     const next = await syncQueue(mergeLineReviewEvents(snapshot.state, reviews, unmatched));
     if (JSON.stringify(next) === JSON.stringify(snapshot.state)) return snapshot;
     try {
-      const saved = await repository.saveDashboardState(next, snapshot.version);
-      return { state: next, version: saved.version };
+      await repository.saveDashboardState(next, snapshot.version);
+      return await repository.loadDashboardState();
     } catch (error) {
       // Rebase projections onto the latest saved edits, never overwrite a stale snapshot.
       if (!(error instanceof StaleDashboardStateError) || attempt === 3) throw error;

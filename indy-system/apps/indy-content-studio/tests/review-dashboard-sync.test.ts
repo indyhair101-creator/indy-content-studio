@@ -125,9 +125,10 @@ describe("durable LINE dashboard projection", () => {
   it("retries CAS against the latest edits and persists queue projection with review feedback", async () => {
     const { state, review } = fixture();
     const edited = { ...state, contents: [{ ...state.contents[0], title: "ชื่อแก้ใหม่" }] };
+    let persisted = { state: edited, version: 2 };
     const repository = {
-      loadDashboardState: vi.fn().mockResolvedValueOnce({ state, version: 1 }).mockResolvedValue({ state: edited, version: 2 }),
-      saveDashboardState: vi.fn().mockRejectedValueOnce(new StaleDashboardStateError()).mockResolvedValue({ version: 3 }),
+      loadDashboardState: vi.fn().mockResolvedValueOnce({ state, version: 1 }).mockImplementation(async () => persisted),
+      saveDashboardState: vi.fn().mockRejectedValueOnce(new StaleDashboardStateError()).mockImplementation(async (next: DashboardState) => { persisted = { state: next, version: 3 }; return { version: 3 }; }),
     };
     const syncQueue = vi.fn(async (next: DashboardState) => ({ ...next, notificationReadIds: ["queue-synchronized"] }));
     const snapshot = await loadSyncedDashboardState(repository, { listReviews: async () => [review], listUnmatchedFeedback: async () => [], syncQueue });

@@ -115,7 +115,8 @@ export function DashboardDataProvider({
       try {
         const next = mutation(cloneDashboardState(current));
         await activeRepository.write(next);
-        applySnapshot(next);
+        // The server appends authoritative status evidence while saving.
+        applySnapshot(await activeRepository.read());
       } catch (caught) {
         const nextError = caught instanceof Error ? caught : new Error("บันทึกข้อมูลไม่สำเร็จ");
         setError(nextError);
