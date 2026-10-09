@@ -18,6 +18,7 @@ export interface ReportPublication {
   mediaKind: "video" | "image" | "other"; durationSeconds: number | null; thumbnailUrl: string | null;
 }
 export interface MetricObservation {
+  timeZone?: string;
   id: string; publicationId: string; fetchedAt: string; source: "api" | "import";
   sourceLabel: string; scope: "activity" | "lifetime"; period: ReportRange | null;
   traffic: TrafficKind; metrics: Partial<Record<MetricKey, number | null>>;
@@ -43,4 +44,3 @@ export const REPORT_PLATFORM_LABELS: Record<ReportPlatform, string> = { facebook
 export function emptyReportingState(): ReportingState {
   return { connections: [], publications: [], observations: [], savedReports: [] };
 }
-
