@@ -29,18 +29,42 @@ describe("dashboard synchronization with MCP changes", () => {
 
   it("does not replace a saved snapshot with an older read that finishes late", async () => {
     const initial = createEmptyDashboardState();
+    const next = structuredClone(initial); next.notificationReadIds.push("saved");
     let resolveRead!: (response: Response) => void;
     const fetch = vi.fn()
       .mockResolvedValueOnce(Response.json({ state: initial, version: 1 }))
       .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveRead = resolve; }))
-      .mockResolvedValueOnce(Response.json({ version: 2 }));
+      .mockResolvedValueOnce(Response.json({ version: 2, state: next }));
     vi.stubGlobal("fetch", fetch);
     const repo = new ApiDashboardRepository();
     await repo.read();
     const staleRead = repo.read();
-    const next = structuredClone(initial); next.notificationReadIds.push("saved");
     await repo.write(next);
     resolveRead(Response.json({ state: initial, version: 1 }));
     expect((await staleRead).notificationReadIds).toEqual(["saved"]);
+  });
+  it("rejects a late stale read after a legacy revision-only save instead of labelling old or submitted state confirmed", async () => {
+    const initial = createEmptyDashboardState();
+    const submitted = { ...initial, notificationReadIds: ["submitted"] };
+    const persisted = { ...initial, notificationReadIds: ["server-confirmed"] };
+    let resolveRead!: (response: Response) => void;
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(Response.json({ state: initial, version: 1 }))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => { resolveRead = resolve; }))
+      .mockResolvedValueOnce(Response.json({ version: 2 }))
+      .mockResolvedValueOnce(Response.json({ state: persisted, version: 2 }));
+    vi.stubGlobal("fetch", fetch);
+    const repo = new ApiDashboardRepository();
+    await repo.read();
+    const listener = vi.fn(); const stop = repo.subscribe(listener);
+    try {
+      const staleRead = repo.read();
+      expect(await repo.write(submitted)).toBeUndefined();
+      resolveRead(Response.json({ state: initial, version: 1 }));
+      await expect(staleRead).rejects.toThrow("ข้อมูลล่าสุด");
+      expect(listener).not.toHaveBeenCalled();
+      window.dispatchEvent(new Event("focus"));
+      await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(persisted));
+    } finally { stop(); }
   });
 });

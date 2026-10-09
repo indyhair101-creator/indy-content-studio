@@ -13,6 +13,7 @@ interface DashboardStateResponse {
 export class ApiDashboardRepository implements DashboardRepository {
   private version: number | null = null;
   private snapshot: DashboardState | null = null;
+  private snapshotVersion: number | null = null;
   private readonly listeners = new Set<DashboardListener>();
   private stopRefreshing: (() => void) | null = null;
   private refreshing = false;
@@ -21,11 +22,14 @@ export class ApiDashboardRepository implements DashboardRepository {
     const response = await fetch("/api/dashboard-state", { cache: "no-store" });
     if (!response.ok) throw new Error("โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ");
     const payload = await response.json() as DashboardStateResponse;
-    if (this.version !== null && payload.version < this.version && this.snapshot) {
-      return cloneDashboardState(this.snapshot);
+    if (this.version !== null && payload.version < this.version) {
+      if (this.snapshot && this.snapshotVersion === this.version) return cloneDashboardState(this.snapshot);
+      // A revision-only acknowledgement does not confirm the older cached contents.
+      throw new Error("ยังโหลดข้อมูลล่าสุดหลังบันทึกไม่ได้ กรุณาโหลดใหม่");
     }
     this.version = payload.version;
     this.snapshot = cloneDashboardState(payload.state);
+    this.snapshotVersion = payload.version;
     return cloneDashboardState(payload.state);
   }
 
@@ -39,15 +43,19 @@ export class ApiDashboardRepository implements DashboardRepository {
     if (response.status === 409) throw new Error("ข้อมูลถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่");
     if (!response.ok) throw new Error("บันทึกข้อมูลลงเซิร์ฟเวอร์ไม่สำเร็จ");
     const payload = await response.json() as { version: number; state?: DashboardState };
-    if (this.version !== null && payload.version < this.version && this.snapshot) {
-      this.listeners.forEach((listener) => listener(cloneDashboardState(this.snapshot!)));
-      return cloneDashboardState(this.snapshot);
+    if (this.version !== null && payload.version < this.version) {
+      if (this.snapshot && this.snapshotVersion === this.version) {
+        this.listeners.forEach((listener) => listener(cloneDashboardState(this.snapshot!)));
+        return cloneDashboardState(this.snapshot);
+      }
+      return;
     }
     this.version = payload.version;
     // Older servers acknowledge only the revision: the caller must refresh in that case.
     if (!payload.state) return;
     const snapshot = cloneDashboardState(payload.state);
     this.snapshot = snapshot;
+    this.snapshotVersion = payload.version;
     this.listeners.forEach((listener) => listener(cloneDashboardState(snapshot)));
     return cloneDashboardState(snapshot);
   }
@@ -72,10 +80,10 @@ export class ApiDashboardRepository implements DashboardRepository {
   private async refresh(): Promise<void> {
     if (this.refreshing || this.listeners.size === 0) return;
     this.refreshing = true;
-    const previousVersion = this.version;
+    const previousVersion = this.snapshotVersion;
     try {
       const state = await this.read();
-      if (this.version !== previousVersion) this.listeners.forEach((listener) => listener(cloneDashboardState(state)));
+      if (this.snapshotVersion !== previousVersion) this.listeners.forEach((listener) => listener(cloneDashboardState(state)));
     } catch {
       // A temporary polling failure keeps the last confirmed snapshot; explicit reload still reports errors.
     } finally { this.refreshing = false; }
