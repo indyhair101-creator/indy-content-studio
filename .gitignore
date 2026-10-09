@@ -1,0 +1,14 @@
+.vercel-cli/
+**/.env*
+**/.vercel/
+**/node_modules/
+**/.next/
+**/.pnpm-store/
+recovered-original/
+restored-app/
+current-system/
+*.zip
+.qa/
+**/*.tsbuildinfo
+.worktrees/
+.superpowers/

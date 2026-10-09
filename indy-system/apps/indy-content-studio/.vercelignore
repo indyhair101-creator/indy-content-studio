@@ -1,0 +1,3 @@
+# The app can also be deployed directly as a Vercel project root.
+.env*
+**/.env*

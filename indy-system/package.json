@@ -1,0 +1,7 @@
+{
+  "name": "indy-content-line-oa-test",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-site.mjs"
+  }
+}
