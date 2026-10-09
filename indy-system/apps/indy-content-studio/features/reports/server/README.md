@@ -1,5 +1,19 @@
 # Report providers
 
+## Existing Zernio integration (preferred when configured)
+
+The server accepts the existing exact mixed-case `Zernio_API_KEY`, with `ZERNIO_API_KEY` as an alternative. It discovers authorized social accounts using `GET https://zernio.com/api/v1/accounts?page=1&limit=100&category=social&excludeHidden=true` and checks `GET /v1/accounts/{id}/health`. No keys, stored platform tokens, metadata objects, or raw provider errors leave the server. Accounts requiring reconnection, insufficient analytics scopes and HTTP 402 subscription limitations are distinct from successful health. No subscription purchase or plan change is performed.
+
+Status discovers up to 300 accounts; up to 20 selected supported accounts are checked per round with a global 45-second budget. Sync accepts optional `accountId` (the returned connection ID or native account ID) and `platform`. Selection must match a discovered permitted account. It reads at most 3 pages of 20 posts via `/v1/analytics?accountId=...&fromDate=...&toDate=...&source=all&page=...&limit=20`. Only each matching `posts[].platforms[]` row is mapped, never the cross-account aggregate. Selected account sync preserves other connections in local report state.
+
+Native `platformUserId` is used to deduplicate a direct connection; Instagram's `metadata.instagramScopedId` is preferred when present. TikTok app-scoped IDs may differ between Zernio and a direct app, so users should use one credential source for that account when identity cannot be reconciled. Missing direct configurations for a platform with a discovered Zernio account are suppressed.
+
+The list returns absolute lifetime snapshots. Date parameters do **not** establish an activity period. Observations preserve client fetch time and disclose upstream `analytics.lastUpdated` in the source label. Unsupported metrics can be zero-filled by Zernio, so only supported basic counters retain zero; optional reach/watch/follow/completion fields require positive evidence. Millisecond watch durations convert to seconds. TikTok completion fractions convert to percentages. Facebook retention points retain their documented sampled-play basis; no playback weighting is fabricated. Traffic stays unknown even when `isAd=false`, which does not prove organic delivery.
+
+Production environment-name inventory reported an existing `Zernio_API_KEY`; no live Zernio account call was made by this worktree. Local-file-only absence is not a statement about production availability. Live IDs, subscription and capabilities remain to be confirmed. The target Page remains **สอนทำผม INDY HAIR DESIGN ACADEMY**; no match is inferred solely from the label.
+
+Official sources verified 2026-10-09: [accounts](https://docs.zernio.com/accounts/list-accounts), [health](https://docs.zernio.com/accounts/get-account-health), [analytics](https://docs.zernio.com/analytics/get-analytics), and the [OpenAPI schema](https://docs.zernio.com/api/openapi) (`SocialAccount`, `PostAnalytics`, `PlatformAnalytics`, `AnalyticsListResponse`). The timeline endpoint is not implemented because its daily snapshots must not be confused with activity increments.
+
 Credentials are read only on the server from explicit `REPORT_*` environment variables. Existing publication credentials are not silently reused. The browser receives normalized public metadata, counts, status, and configuration **names** only. No refresh tokens, access tokens, raw upstream errors, or token-bearing pagination URLs are returned or logged.
 
 ## Configuration
