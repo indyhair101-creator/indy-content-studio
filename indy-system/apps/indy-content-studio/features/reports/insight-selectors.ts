@@ -15,7 +15,7 @@ const overlaps = (a: MetricObservation, b: MetricObservation) => !a.period || !b
 export function selectObservations(observations: MetricObservation[], filters: ReportFilters): MetricObservation[] {
   const candidates = observations.filter(o => filters.dateBasis === "published" ? o.scope === "lifetime" : o.scope === "activity" && o.period && o.period.start >= filters.range.start && o.period.end <= filters.range.end)
     .filter(o => filters.traffic === "any" || o.traffic === filters.traffic)
-    .sort((a, b) => b.fetchedAt.localeCompare(a.fetchedAt) || a.id.localeCompare(b.id));
+    .sort((a, b) => Date.parse(b.fetchedAt) - Date.parse(a.fetchedAt) || a.id.localeCompare(b.id));
   // All-traffic and its organic/paid subsets must not be counted together.
   const traffic = filters.traffic === "any" ? (candidates.some(o => o.traffic === "all") ? "all" : candidates[0]?.traffic) : filters.traffic;
   return candidates.filter(o => o.traffic === traffic);

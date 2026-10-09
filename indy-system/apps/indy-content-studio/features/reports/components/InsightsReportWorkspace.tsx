@@ -20,6 +20,7 @@ function PublicationDetails({ row }: { row: InsightPublication }) {
   const url = safePostUrl(row.publication.url);
   const retention = row.observations.find(o => o.retention?.length)?.retention;
   const retentionMax = Math.max(...(retention ?? []).map(point => point.positionSeconds), 1);
+  const retentionRatioMax = Math.max(...(retention ?? []).map(point => point.ratio), 1);
   return <section className="report-card">
     <h4>{REPORT_PLATFORM_LABELS[row.publication.platform]} · {row.publication.title}</h4>
     <p>เผยแพร่ {row.publication.publishedAt} · บัญชี {row.publication.accountId} · ความยาว {number(row.publication.durationSeconds)} วินาที</p>
@@ -28,7 +29,7 @@ function PublicationDetails({ row }: { row: InsightPublication }) {
     <p>ครั้งรับชมอาจรวมคนเดิมหลายครั้ง การเข้าถึงและผู้ชมไม่ซ้ำแสดงเฉพาะรายโพสต์ · สัดส่วนดูเฉลี่ยกับอัตราดูจบเป็นคนละตัวชี้วัด</p>
     {row.publication.mediaKind === "video" && <><h4>ผลตามอายุหลังเผยแพร่จริง</h4><table className="report-table"><thead><tr><th>อายุ</th><th>รับชม (ครั้ง)</th><th>ดูเฉลี่ย (วินาที)</th><th>หลักฐาน</th></tr></thead><tbody>{([24, 168, 720] as const).map(hours => { const snapshot = traffic ? exactAgeSnapshot(row.publication, snapshots, hours, traffic) : null; return <tr key={hours}><th>{hours === 24 ? "24 ชั่วโมง" : `${hours / 24} วัน`}</th><td>{number(snapshot?.metrics.views)}</td><td>{number(snapshot?.metrics.averageWatchSeconds)}</td><td>{snapshot ? `${snapshot.id} · ${snapshot.traffic} · ${snapshot.fetchedAt}` : "ไม่มี snapshot ตรงอายุ"}</td></tr>; })}</tbody></table><p>ใช้เฉพาะ snapshot สะสมที่เวลาตรงอายุจริง ไม่ประมาณย้อนจากยอดล่าสุด · ผลหลังดูแสดงเป็นจำนวนเมื่อไม่มีฐานอัตราที่แพลตฟอร์มยืนยัน</p></>}
     <h4>การดูต่อและจุดออก</h4>
-    {retention?.length ? <><svg viewBox="0 0 600 160" role="img" aria-label="การดูต่อตามตำแหน่งวิดีโอจากข้อมูลต้นทาง"><polyline fill="none" stroke="currentColor" strokeWidth="3" points={[...retention].sort((a, b) => a.positionSeconds - b.positionSeconds).map(p => `${p.positionSeconds / retentionMax * 590},${150 - Math.min(p.ratio, 1) * 140}`).join(" ")} /></svg><table className="report-table"><thead><tr><th>ตำแหน่ง (วินาที)</th><th>สัดส่วนดูต่อ</th></tr></thead><tbody>{retention.map((p, i) => <tr key={i}><td>{number(p.positionSeconds)}</td><td>{number(p.ratio * 100)}%</td></tr>)}</tbody></table><p>กราฟใช้จุดที่แหล่งข้อมูลส่งมา ไม่อนุมานจุดออกหรือการดูซ้ำจากยอดรวม</p></> : <p className="report-empty">ยังไม่มีข้อมูล retention จากแหล่งข้อมูล จึงยังระบุจุดออกและการดูซ้ำไม่ได้</p>}
+    {retention?.length ? <><svg viewBox="0 0 640 180" role="img" aria-label="การดูต่อตามตำแหน่งวิดีโอจากข้อมูลต้นทาง"><text x="0" y="20" fontSize="12">{number(retentionRatioMax * 100)}%</text><text x="0" y="150" fontSize="12">0%</text><text x="50" y="175" fontSize="12">0 วินาที</text><text x="630" y="175" fontSize="12" textAnchor="end">{number(retentionMax)} วินาที</text><line x1="50" x2="630" y1={150 - 130 / retentionRatioMax} y2={150 - 130 / retentionRatioMax} stroke="currentColor" strokeDasharray="4 4" opacity="0.3" /><polyline fill="none" stroke="currentColor" strokeWidth="3" points={[...retention].sort((a, b) => a.positionSeconds - b.positionSeconds).map(p => `${50 + p.positionSeconds / retentionMax * 580},${150 - p.ratio / retentionRatioMax * 130}`).join(" ")} /></svg><p>แกนตั้ง 0–{number(retentionRatioMax * 100)}% · เส้นประคือ 100% · ค่ามากกว่า 100% คงตามต้นทาง อาจรวมการดูซ้ำตามนิยามแพลตฟอร์ม</p><table className="report-table"><thead><tr><th>ตำแหน่ง (วินาที)</th><th>สัดส่วนดูต่อ</th></tr></thead><tbody>{retention.map((p, i) => <tr key={i}><td>{number(p.positionSeconds)}</td><td>{number(p.ratio * 100)}%</td></tr>)}</tbody></table><p>กราฟใช้จุดที่แหล่งข้อมูลส่งมา ไม่อนุมานจุดออกหรือการดูซ้ำจากยอดรวม</p></> : <p className="report-empty">ยังไม่มีข้อมูล retention จากแหล่งข้อมูล จึงยังระบุจุดออกและการดูซ้ำไม่ได้</p>}
     <h4>แหล่งข้อมูล</h4>
     {row.observations.length ? <ul>{row.observations.map(o => <li key={o.id}>{o.sourceLabel} ({o.source}) · {o.traffic} · {o.scope === "lifetime" ? "สะสมตลอดอายุโพสต์" : `${o.period?.start} – ${o.period?.end}`} · เขตเวลา {o.timeZone ?? "ตามแหล่งข้อมูล / ไม่ระบุ"} · ดึงล่าสุด {o.fetchedAt} · หลักฐาน {o.id}</li>)}</ul> : <p>ยังไม่มีตัวเลขที่ตรงกับช่วงเวลาและแหล่งยอดที่เลือก</p>}
   </section>;
@@ -39,8 +40,9 @@ export interface InsightsReportWorkspaceProps {
   renderAnalysis?: (filters: ReportFilters) => ReactNode;
   renderSaved?: (filters: ReportFilters) => ReactNode;
   renderActions?: (filters: ReportFilters) => ReactNode;
+  renderSources?: (filters: ReportFilters) => ReactNode;
 }
-export function InsightsReportWorkspace({ onOpenContent, renderAnalysis, renderSaved, renderActions }: InsightsReportWorkspaceProps) {
+export function InsightsReportWorkspace({ onOpenContent, renderAnalysis, renderSaved, renderActions, renderSources }: InsightsReportWorkspaceProps) {
   const { state, status, error } = useDashboardData();
   const [filters, setFilters] = useState<ReportFilters>(() => defaultReportFilters());
   const [tab, setTab] = useState<Tab>("overview");
@@ -76,6 +78,7 @@ export function InsightsReportWorkspace({ onOpenContent, renderAnalysis, renderS
   return <section className="report-workspace">
     <header className="report-header"><div><h2>Report ข้อมูลเชิงลึก</h2><p>ผลคอนเทนต์และวิดีโอจากข้อมูลเผยแพร่ที่จับคู่แล้ว</p></div>{renderActions?.(activeFilters)}</header>
     <ReportFilterBar filters={filters} onChange={setFilters} state={state} />
+    {renderSources?.(activeFilters)}
     <nav className="report-tabs" aria-label="ส่วนรายงานข้อมูลเชิงลึก">{tabs.filter(([id]) => (id !== "ai" || renderAnalysis) && (id !== "saved" || renderSaved)).map(([id, label]) => <button type="button" key={id} aria-pressed={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>
     <p className="report-notice">{filters.dateBasis === "activity" ? "ผลลัพธ์ที่เกิดในช่วงนี้: ใช้เฉพาะช่วงข้อมูลที่อยู่ภายในวันที่เลือก ไม่แบ่งยอดรวมให้เป็นรายวันโดยประมาณ" : "โพสต์ที่เผยแพร่ในช่วงนี้: แสดงยอดสะสมล่าสุดตลอดอายุโพสต์ ไม่ใช่ยอดที่เกิดเฉพาะช่วงวันที่เลือก"}</p>
     <p>{groups.length} คอนเทนต์ · {rows.length} โพสต์ · มีข้อมูล {rows.filter(row => Object.values(row.metrics).some(value => value !== null)).length}/{rows.length} โพสต์ · อัปเดตล่าสุด {latest ?? "ยังไม่มีข้อมูล"}</p>

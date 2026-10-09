@@ -19,6 +19,10 @@ function stateWith(observations: MetricObservation[], publications = [publicatio
   return state;
 }
 describe("insight observations", () => {
+  it("orders snapshot instants correctly when timestamps have different offsets", () => {
+    const samples = [observation({ id: "older", scope: "lifetime", period: null, fetchedAt: "2026-10-09T09:00:00+07:00", metrics: { views: 10 } }), observation({ id: "newer", scope: "lifetime", period: null, fetchedAt: "2026-10-09T03:00:00Z", metrics: { views: 20 } })];
+    expect(observationMetric(selectObservations(samples, filters), "views")).toBe(20);
+  });
   it("keeps missing unknown and genuine zero distinct", () => {
     expect(observationMetric([observation({ metrics: { views: 0 } })], "views")).toBe(0);
     expect(observationMetric([observation({ metrics: {} })], "views")).toBeNull();

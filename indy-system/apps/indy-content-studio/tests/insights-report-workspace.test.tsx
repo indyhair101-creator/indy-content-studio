@@ -14,6 +14,16 @@ describe("insight report workspace", () => {
     fixture.state.reporting = { ...emptyReportingState(), publications: [{ id: "p", contentId: "c", platform: "youtube", accountId: "channel", providerPostId: "real", url: "javascript:alert(1)", title: "วิดีโอทดสอบ", publishedAt: "2026-10-01T00:00:00Z", mediaKind: "video", durationSeconds: 60, thumbnailUrl: null }], observations: [{ id: "o", publicationId: "p", source: "import", sourceLabel: "Test verified export", fetchedAt: "2026-10-09T00:00:00Z", scope: "lifetime", period: null, traffic: "unknown", metrics: { views: 0, averageWatchSeconds: 12, averageWatchPercent: 20, completionRate: 5 }, averageWatchWeight: null, retention: null }] };
   });
   afterEach(() => vi.useRealTimers());
+  it("retains ratios above 100 percent with a labeled scaled axis", () => {
+    fixture.state!.reporting!.observations[0].retention = [{ positionSeconds: 0, ratio: 1.5 }, { positionSeconds: 30, ratio: 1 }];
+    render(<InsightsReportWorkspace />);
+    const chart = screen.getByRole("img", { name: "การดูต่อตามตำแหน่งวิดีโอจากข้อมูลต้นทาง", hidden: true });
+    const points = chart.querySelector("polyline")!.getAttribute("points")!.split(" ").map(point => point.split(",").map(Number));
+    expect(points[0][1]).toBe(20);
+    expect(points[1][1]).toBeGreaterThan(points[0][1]);
+    expect(chart.textContent).toContain("150%");
+    expect(screen.getByText(/แกนตั้ง 0–150%/)).toBeInTheDocument();
+  });
   it("opens content, preserves unavailable metrics, rejects unsafe links, and provides video details", () => {
     const open = vi.fn(); render(<InsightsReportWorkspace onOpenContent={open} />);
     fireEvent.click(screen.getByRole("button", { name: "วิเคราะห์วิดีโอ" }));
