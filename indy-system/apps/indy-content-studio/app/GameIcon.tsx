@@ -3,7 +3,7 @@ import type { ReactElement } from "react";
 export type GameIconName =
   | "overview" | "calendar" | "action-plan" | "production-board" | "corrections" | "media-library"
   | "references" | "caption-templates" | "make-delivery" | "team-report" | "content-report" | "settings"
-  | "search" | "bell";
+  | "search" | "bell" | "sound-on" | "sound-off";
 
 const ink = "#2a1a10";
 const line = { stroke: ink, strokeWidth: 2, strokeLinejoin: "round" as const, strokeLinecap: "round" as const };
@@ -108,6 +108,18 @@ const shapes: Record<GameIconName, ReactElement> = {
       <circle cx="13.5" cy="13.5" r="8.5" fill="#cfe9e6" {...line} />
       <path d="m20 20 7.5 7.5" stroke={ink} strokeWidth="4" strokeLinecap="round" />
       <path d="M9.5 11a4.5 4.5 0 0 1 3.5-2.8" stroke="#fff" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </>
+  ),
+  "sound-on": (
+    <>
+      <path d="M4 12h5l7-6v20l-7-6H4Z" fill="#f1b42f" stroke="#2a1a10" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M20 11a6 6 0 0 1 0 10M23.5 7.5a11 11 0 0 1 0 17" fill="none" stroke="#2a1a10" strokeWidth="2.4" strokeLinecap="round" />
+    </>
+  ),
+  "sound-off": (
+    <>
+      <path d="M4 12h5l7-6v20l-7-6H4Z" fill="#c9b79a" stroke="#2a1a10" strokeWidth="2" strokeLinejoin="round" />
+      <path d="m20 12 8 8M28 12l-8 8" fill="none" stroke="#8f2f22" strokeWidth="2.6" strokeLinecap="round" />
     </>
   ),
   bell: (

@@ -35,7 +35,7 @@ export function groupOf(item: WorkspaceItem) {
   return navigationGroups.find((group) => group.items.includes(item)) ?? navigationGroups[0];
 }
 
-export function AppShell({ children, activeItem = "overview", onNavigate, headerAside }: { children: ReactNode; activeItem?: WorkspaceItem; onNavigate?: (item: WorkspaceItem) => void; headerAside?: ReactNode }) {
+export function AppShell({ children, activeItem = "overview", onNavigate, headerAside, badges = {} }: { children: ReactNode; activeItem?: WorkspaceItem; onNavigate?: (item: WorkspaceItem) => void; headerAside?: ReactNode; badges?: Partial<Record<WorkspaceItem, number>> }) {
   const activeGroup = groupOf(activeItem);
   const subItems = activeGroup.items.map((id) => navigationItems.find((item) => item.id === id)!);
 
@@ -50,6 +50,7 @@ export function AppShell({ children, activeItem = "overview", onNavigate, header
           <button key={group.id} type="button" className="rail-button" aria-label={group.label} aria-current={group.id === activeGroup.id ? "page" : undefined} data-tooltip={group.label} onClick={() => onNavigate?.(group.items[0])}>
             <span className="rail-icon" aria-hidden="true"><GameIcon name={group.icon} /></span>
             <span className="rail-label">{group.label}</span>
+            {(() => { const count = group.items.reduce((sum, item) => sum + (badges[item] ?? 0), 0); return count > 0 ? <span className="rail-badge" aria-label={`${count} รายการใหม่`}>{count}</span> : null; })()}
           </button>
         ))}
       </nav>
@@ -57,7 +58,7 @@ export function AppShell({ children, activeItem = "overview", onNavigate, header
         <header className="command-capsule">
           {subItems.length > 1
             ? <nav className="workspace-tabs" aria-label={`หน้าย่อยใน ${activeGroup.label}`}>
-              {subItems.map((item) => <button key={item.id} type="button" className="workspace-tab" aria-current={item.id === activeItem ? "page" : undefined} onClick={() => onNavigate?.(item.id)}>{item.label}</button>)}
+              {subItems.map((item) => <button key={item.id} type="button" className="workspace-tab" aria-current={item.id === activeItem ? "page" : undefined} onClick={() => onNavigate?.(item.id)}>{item.label}{(badges[item.id] ?? 0) > 0 && <span className="rail-badge" aria-label={`${badges[item.id]} รายการใหม่`}>{badges[item.id]}</span>}</button>)}
             </nav>
             : <span className="workspace-tabs-spacer" />}
           {headerAside && <div className="command-aside">{headerAside}</div>}

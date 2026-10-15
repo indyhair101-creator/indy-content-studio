@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell, type WorkspaceItem } from "./AppShell";
+import { GameIcon } from "./GameIcon";
+import { useCorrectionAlerts } from "../features/notifications/useCorrectionAlerts";
+import { CorrectionToasts } from "../features/notifications/components/CorrectionToasts";
 import { TodayOverview, type TodayOverviewState } from "../features/dashboard/components/TodayOverview";
 import { CreateContentModal, type CreateContentInput } from "../features/dashboard/components/CreateContentModal";
 import { TaskDetailDrawer } from "../features/dashboard/components/TaskDetailDrawer";
@@ -73,6 +76,8 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
   const todayState: TodayOverviewState = dashboard.status === "loading" && !dashboard.state ? "loading" : dashboard.error && !dashboard.state ? "error" : "ready";
   const [lastOwner, setLastOwner] = useState(() => { try { return localStorage.getItem("indy:last-owner") ?? ""; } catch { return ""; } });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceItem>("overview");
+  const correctionAlerts = useCorrectionAlerts();
+  const { markAllSeen } = correctionAlerts;
   const [createInitialDate, setCreateInitialDate] = useState("");
   const [continuationNotice, setContinuationNotice] = useState<string | null>(null);
   const [isLineConfirmationOpen, setLineConfirmationOpen] = useState(false);
@@ -84,6 +89,15 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
   const [storageHealth, setStorageHealth] = useState<StorageHealth>({ status: "checking", reason: null });
   const selectedTask = todayTasks.find((task) => task.id === workspace.selectedTaskId);
   const lineConnected = lineConnection.view === "authenticated" && lineConnection.status === "connected";
+
+  useEffect(() => { if (activeWorkspace === "corrections") markAllSeen(); }, [activeWorkspace, markAllSeen]);
+
+  /** New LINE replies are merged into the dashboard on load, so open the list with fresh data. */
+  function openCorrections() {
+    setActiveWorkspace("corrections");
+    markAllSeen();
+    void dashboard.reload().catch(() => undefined);
+  }
 
   function openCreateContent(initialDate = "") {
     setCreateInitialDate(initialDate);
@@ -275,7 +289,14 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
     void dashboard.reload().catch(() => undefined).finally(() => setRefreshing(false));
   }}>{refreshing ? "กำลังโหลด…" : "โหลดข้อมูลงานล่าสุด"}</button>;
 
-  return <AppShell activeItem={activeWorkspace} onNavigate={setActiveWorkspace} headerAside={refreshButton}>
+  const alertControls = <>
+    {correctionAlerts.permission === "default" && <button type="button" className="header-tool-button" onClick={() => void correctionAlerts.requestPermission()}>เปิดแจ้งเตือนมุมจอ</button>}
+    <button type="button" className="header-icon-button" aria-label={correctionAlerts.soundOn ? "ปิดเสียงแจ้งเตือน" : "เปิดเสียงแจ้งเตือน"} aria-pressed={correctionAlerts.soundOn} title={correctionAlerts.soundOn ? "เสียงแจ้งเตือนเปิดอยู่" : "เสียงแจ้งเตือนปิดอยู่"} onClick={correctionAlerts.toggleSound}><GameIcon name={correctionAlerts.soundOn ? "sound-on" : "sound-off"} size={24} /></button>
+    <button type="button" className="header-icon-button" aria-label="การแจ้งเตือนงานแก้" title="ไปที่งานที่ต้องแก้" onClick={openCorrections}><GameIcon name="bell" size={24} />{correctionAlerts.unseenCount > 0 && <span className="rail-badge" aria-label={`${correctionAlerts.unseenCount} งานแก้ใหม่`}>{correctionAlerts.unseenCount}</span>}</button>
+  </>;
+
+  return <AppShell activeItem={activeWorkspace} onNavigate={setActiveWorkspace} headerAside={<>{alertControls}{refreshButton}</>} badges={{ corrections: correctionAlerts.unseenCount }}>
+    <CorrectionToasts alerts={correctionAlerts.alerts} onOpen={openCorrections} onDismiss={correctionAlerts.dismiss} />
     <main>
       {dashboard.error && <p className="app-alert" role="alert">โหลดฐานข้อมูลงานไม่สำเร็จ ข้อมูลเดิมไม่ได้ถูกลบ — ยังเปิด Report ข้อมูลเชิงลึกและกดดึงจากโซเชียลได้</p>}
       {activeWorkspace === "overview" && <>
