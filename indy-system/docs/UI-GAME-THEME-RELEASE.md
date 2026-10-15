@@ -12,3 +12,11 @@
 
 Source: branch `indy/game-ui` ต่อจาก `bab2572` (source เดียวกับ production 2026-10-12) ไม่รวมงาน event-sync และไม่มี migration
 Rollback: โปรโมต deployment ก่อนหน้าใน Vercel (รุ่น 2026-10-12) ได้ทันที
+
+## แจ้งเตือนงานแก้ — 2026-10-15
+
+- [x] เช็คงาน "ไม่ผ่าน" จาก LINE ทุก 2 นาที ผ่าน `/api/corrections/recent` (อ่านเฉพาะรายการใหม่ ไม่โหลด snapshot ทั้งก้อน)
+- [x] กล่องเด้งมุมขวาล่าง เสียงติ๊ด-ดึง ตัวเลขบนกระดิ่ง/เมนูงานผลิต/ชื่อแท็บ และแจ้งเตือนมุมจอเมื่ออยู่แท็บอื่น (ต้องกดอนุญาตครั้งแรก)
+- [x] Vitest 627 ผ่าน / 2 ข้าม / 1 ไม่ผ่าน (เทสต์เดิมที่ไม่ผ่านอยู่ก่อน); next build ผ่าน
+- [x] Production `dpl_8DssMveuThYvUctuwBwza4MgMmtu` READY ผูก indy-content-studio.vercel.app; `/api/corrections/recent` ไม่ล็อกอินได้ 401
+- [ ] ทดสอบกับคำตอบ LINE จริง — รอฐานข้อมูล Neon กลับมาใช้ได้
