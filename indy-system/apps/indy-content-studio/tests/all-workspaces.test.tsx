@@ -7,8 +7,8 @@ describe("all navigation workspaces", () => {
   it("reaches every workspace through its destination and sub-tab without placeholder copy", async () => {
     render(<HomePage repository={new MemoryDashboardRepository()} />);
     const workspaces = [
-      ["วันนี้", "ภาพรวม", "กำหนดการวันนี้"],
-      ["วันนี้", "Action Plan", "Action Plan"],
+      ["วันนี้", null, "กำหนดการวันนี้"],
+      ["Action Plan", null, "Action Plan"],
       ["ปฏิทิน", null, "ปฏิทินคอนเทนต์"],
       ["งานผลิต", "บอร์ดการผลิต", "บอร์ดการผลิต"],
       ["งานผลิต", "งานที่ต้องแก้", "งานที่ต้องแก้"],

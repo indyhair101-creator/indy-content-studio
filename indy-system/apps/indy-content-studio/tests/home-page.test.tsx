@@ -68,7 +68,6 @@ describe("HomePage", () => {
     fireEvent.change(await screen.findByLabelText("เดือนปฏิทิน"), { target: { value: "2026-09" } });
     const dayCell = await screen.findByLabelText("2026-09-23");
     expect(within(dayCell).getByText("งานตามแผน")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "วันนี้" }));
     fireEvent.click(screen.getByRole("button", { name: "Action Plan" }));
     fireEvent.change(screen.getByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-23" } });
     expect(await screen.findByRole("checkbox", { name: "ทำเสร็จ เตรียมงาน — งานตามแผน" })).toBeVisible();

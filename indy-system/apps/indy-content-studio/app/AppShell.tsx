@@ -20,10 +20,11 @@ export const navigationItems = [
 
 export type WorkspaceItem = (typeof navigationItems)[number]["id"];
 
-/** Six destinations; related workspaces sit behind sub-tabs in the header. */
+/** Seven destinations; related workspaces sit behind sub-tabs in the header. */
 export const navigationGroups: ReadonlyArray<{ id: string; label: string; icon: GameIconName; items: readonly WorkspaceItem[] }> = [
-  { id: "today", label: "วันนี้", icon: "overview", items: ["overview", "action-plan"] },
+  { id: "today", label: "วันนี้", icon: "overview", items: ["overview"] },
   { id: "calendar", label: "ปฏิทิน", icon: "calendar", items: ["calendar"] },
+  { id: "action-plan", label: "Action Plan", icon: "action-plan", items: ["action-plan"] },
   { id: "production", label: "งานผลิต", icon: "production-board", items: ["production-board", "corrections", "make-delivery"] },
   { id: "library", label: "คลัง", icon: "media-library", items: ["media-library", "references", "caption-templates"] },
   { id: "reports", label: "รายงาน", icon: "content-report", items: ["team-report", "content-report"] },

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "../app/AppShell";
 
 describe("AppShell", () => {
-  it("shows six labelled destinations without a collapsed-only mode", () => {
+  it("shows seven labelled destinations, Action Plan among them, without a collapsed-only mode", () => {
     render(
       <AppShell>
         <main>content</main>
@@ -13,7 +13,7 @@ describe("AppShell", () => {
     const navigation = screen.getByRole("navigation", { name: "เมนูแดชบอร์ด" });
     expect(navigation).toHaveClass("dashboard-nav");
     expect(navigation).not.toHaveAttribute("data-collapsible");
-    expect(within(navigation).getAllByRole("button").map((button) => button.textContent)).toEqual(["วันนี้", "ปฏิทิน", "งานผลิต", "คลัง", "รายงาน", "ตั้งค่า"]);
+    expect(within(navigation).getAllByRole("button").map((button) => button.textContent)).toEqual(["วันนี้", "ปฏิทิน", "Action Plan", "งานผลิต", "คลัง", "รายงาน", "ตั้งค่า"]);
     expect(screen.getByRole("button", { name: "วันนี้" })).toHaveAttribute("data-tooltip", "วันนี้");
   });
 
