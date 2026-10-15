@@ -91,7 +91,6 @@ export function LineSendConfirmation({ task, open, onCancel, onConfirm, connecte
   return (
     <div className="line-confirmation-backdrop">
       <section className="line-send-confirmation motion-material-surface motion-modal" role="dialog" aria-modal="true" aria-labelledby="line-confirmation-heading">
-        
         <h2 id="line-confirmation-heading">ยืนยันการส่งเข้า LINE OA</h2>
 
         {sendState === "success" ? (
