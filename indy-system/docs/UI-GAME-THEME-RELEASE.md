@@ -20,3 +20,4 @@ Rollback: โปรโมต deployment ก่อนหน้าใน Vercel (�
 - [x] Vitest 627 ผ่าน / 2 ข้าม / 1 ไม่ผ่าน (เทสต์เดิมที่ไม่ผ่านอยู่ก่อน); next build ผ่าน
 - [x] Production `dpl_8DssMveuThYvUctuwBwza4MgMmtu` READY ผูก indy-content-studio.vercel.app; `/api/corrections/recent` ไม่ล็อกอินได้ 401
 - [ ] ทดสอบกับคำตอบ LINE จริง — รอฐานข้อมูล Neon กลับมาใช้ได้
+- [x] กันเสียงซ้ำ: จำรายการที่เตือนแล้วต่อเครื่อง และเทียบเวลาระดับมิลลิวินาที — Production `dpl_ASApith9S43Qf9y7hBxuFBvJMXWe` READY (Vitest 628 ผ่าน)
