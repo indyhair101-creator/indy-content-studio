@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useDashboardData } from "../../data/DashboardDataProvider";
 import type { Platform, StepStatus } from "../../domain/types";
 import { formatBangkokSchedule } from "../../calendar/schedule-time";
@@ -11,6 +11,9 @@ import { selectActionPlan, selectActionPlanEntries, type ActionPlanEntry } from 
 const WEEKDAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์", "อาทิตย์"];
 const STATUS_LABELS: Record<StepStatus, string> = { todo: "รอทำ", doing: "กำลังทำ", done: "เสร็จแล้ว" };
 const PLATFORM_LABELS: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", salon: "Salon" };
+// Shared with the create-content form so a person picks their name once.
+const LAST_OWNER_KEY = "indy:last-owner";
+const NEEDS_OWNER = "เลือกชื่อในช่อง “สร้างในชื่อ” ก่อนเพิ่มงาน";
 
 type ActionStep = ActionPlanEntry;
 type ActionDay = ReturnType<typeof selectActionPlan>["days"][number];
@@ -60,7 +63,8 @@ export function ActionPlanWorkspace() {
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [selectedOwner, setSelectedOwner] = useState("");
-  const [quickOwner, setQuickOwner] = useState("");
+  const [quickOwner, setQuickOwner] = useState(() => { try { return localStorage.getItem(LAST_OWNER_KEY) ?? ""; } catch { return ""; } });
+  const quickOwnerRef = useRef<HTMLSelectElement>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDate, setEditDate] = useState("");
@@ -69,6 +73,7 @@ export function ActionPlanWorkspace() {
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const ownerOptions = dashboard.state?.ownerOptions ?? [];
   const ownerFilter = ownerOptions.includes(selectedOwner) ? selectedOwner : "";
+  const newTaskOwner = ownerOptions.includes(quickOwner) ? quickOwner : "";
   const filters = ownerFilter ? { owner: ownerFilter } : undefined;
   const view = useMemo(
     () => dashboard.state ? selectActionPlan(dashboard.state, { mode: mode === "today" ? "week" : mode, anchorDate: anchor, filters }) : null,
@@ -90,14 +95,21 @@ export function ActionPlanWorkspace() {
 
   async function addQuickTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!quickTitle.trim() || !quickOwner || isAdding) return;
+    if (!quickTitle.trim() || isAdding) return;
+    // Never guess the owner, but say why nothing happened instead of a silently disabled button.
+    if (!newTaskOwner) {
+      setSaveError(NEEDS_OWNER);
+      quickOwnerRef.current?.focus();
+      return;
+    }
     setIsAdding(true);
     setSaveError(null);
     try {
       await dashboard.mutate((state) => addStandaloneActionTask(state, {
-        title: quickTitle, date: anchor, owner: quickOwner, id: `content-${crypto.randomUUID()}`, now: new Date().toISOString(),
+        title: quickTitle, date: anchor, owner: newTaskOwner, id: `content-${crypto.randomUUID()}`, now: new Date().toISOString(),
       }));
       setQuickTitle("");
+      try { localStorage.setItem(LAST_OWNER_KEY, newTaskOwner); } catch { /* the default owner is a convenience only */ }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "เพิ่มงานไม่สำเร็จ กรุณาลองอีกครั้ง");
     } finally {
@@ -261,7 +273,7 @@ export function ActionPlanWorkspace() {
           setAnchor(event.target.value);
           setSelectedDate(event.target.value);
         }} /></label>
-        <label className="action-plan-owner-filter">ผู้รับผิดชอบ<select aria-label="กรองผู้รับผิดชอบ" value={ownerFilter} onChange={(event) => { setSelectedOwner(event.target.value); setQuickOwner(event.target.value); }}>
+        <label className="action-plan-owner-filter">ผู้รับผิดชอบ<select aria-label="กรองผู้รับผิดชอบ" value={ownerFilter} onChange={(event) => { setSelectedOwner(event.target.value); if (event.target.value) setQuickOwner(event.target.value); }}>
           <option value="">รวมทุกคน</option>
           {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
         </select></label>
@@ -278,12 +290,13 @@ export function ActionPlanWorkspace() {
           <form className="action-quick-add" onSubmit={(event) => void addQuickTask(event)}>
             <span aria-hidden="true">○</span>
             <input type="text" aria-label="เพิ่มงานทั่วไป" placeholder="เพิ่มงานทั่วไป เช่น ถ่ายรูป หรือซื้อของ" value={quickTitle} onChange={(event) => setQuickTitle(event.target.value)} disabled={isAdding} />
-            <label className="action-quick-add-owner">สร้างในชื่อ<select aria-label="ผู้รับผิดชอบงานใหม่" value={quickOwner} onChange={(event) => setQuickOwner(event.target.value)} disabled={isAdding}>
+            <label className="action-quick-add-owner">สร้างในชื่อ<select ref={quickOwnerRef} aria-label="ผู้รับผิดชอบงานใหม่" value={newTaskOwner} onChange={(event) => { setQuickOwner(event.target.value); if (saveError === NEEDS_OWNER) setSaveError(null); }} disabled={isAdding}>
               <option value="">เลือกชื่อ</option>
               {ownerOptions.map((owner) => <option key={owner} value={owner}>{owner}</option>)}
             </select></label>
-            <button type="submit" disabled={isAdding || !quickTitle.trim() || !quickOwner}>{isAdding ? "กำลังเพิ่ม…" : "เพิ่มงาน"}</button>
+            <button type="submit" disabled={isAdding || !quickTitle.trim()}>{isAdding ? "กำลังเพิ่ม…" : "เพิ่มงาน"}</button>
           </form>
+          {saveError && <p className="action-plan-error" role="alert">{saveError}</p>}
           {todaySteps.length > 0
             ? <ul className="action-step-list action-today-list">{todaySteps.map(renderStep)}</ul>
             : <p className="action-plan-empty">ยังไม่มีงานในวันนี้ เพิ่มงานหรือเลือกจากคำแนะนำได้เลย</p>}
@@ -338,7 +351,7 @@ export function ActionPlanWorkspace() {
         {view.unscheduled.length > 0 && <ul className="action-step-list">{view.unscheduled.map(renderStep)}</ul>}
       </section>
       </>}
-      {saveError && <p className="action-plan-error" role="alert">{saveError}</p>}
+      {saveError && mode !== "today" && <p className="action-plan-error" role="alert">{saveError}</p>}
     </section>
   );
 }

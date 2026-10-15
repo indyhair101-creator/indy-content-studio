@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { ActionPlanWorkspace } from "../features/action-plan/components/ActionPlanWorkspace";
 import { DashboardDataProvider } from "../features/data/DashboardDataProvider";
 import { MemoryDashboardRepository } from "../features/data/memory-dashboard-repository";
@@ -37,6 +37,8 @@ function createRepository({ includeStandalone = false }: { includeStandalone?: b
 }
 
 describe("ActionPlanWorkspace", () => {
+  beforeEach(() => localStorage.clear());
+
   it("filters by the selected owner, keeps summaries in sync, and offers names from settings", async () => {
     render(<DashboardDataProvider repository={createRepository({ includeStandalone: true })}><ActionPlanWorkspace /></DashboardDataProvider>);
     fireEvent.change(await screen.findByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-24" } });
@@ -113,7 +115,7 @@ describe("ActionPlanWorkspace", () => {
     expect((await repository.read()).actionTasks[0].status).toBe("done");
   });
 
-  it("requires a responsible owner when adding from the all-people view", async () => {
+  it("asks for a responsible owner instead of silently blocking the add button", async () => {
     const repository = createRepository();
     render(<DashboardDataProvider repository={repository}><ActionPlanWorkspace /></DashboardDataProvider>);
     fireEvent.change(await screen.findByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-24" } });
@@ -121,12 +123,49 @@ describe("ActionPlanWorkspace", () => {
     const ownerInput = screen.getByRole("combobox", { name: "ผู้รับผิดชอบงานใหม่" });
     const addButton = screen.getByRole("button", { name: "เพิ่มงาน" });
     fireEvent.change(titleInput, { target: { value: "ถ่ายเบื้องหลัง" } });
-    expect(addButton).toBeDisabled();
+    expect(addButton).toBeEnabled();
+    fireEvent.click(addButton);
+
+    const today = screen.getByRole("region", { name: "งานของวันที่เลือก" });
+    expect(within(today).getByRole("alert")).toHaveTextContent("เลือกชื่อในช่อง “สร้างในชื่อ” ก่อนเพิ่มงาน");
+    expect(ownerInput).toHaveFocus();
+    expect((await repository.read()).actionTasks).toEqual([]);
+
     fireEvent.change(ownerInput, { target: { value: "Misschilli" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     fireEvent.click(addButton);
 
     expect(await screen.findByRole("checkbox", { name: "ทำเสร็จ ถ่ายเบื้องหลัง" })).toBeVisible();
     expect((await repository.read()).actionTasks).toEqual([expect.objectContaining({ title: "ถ่ายเบื้องหลัง", owner: "Misschilli" })]);
+    expect(localStorage.getItem("indy:last-owner")).toBe("Misschilli");
+  });
+
+  it("pre-selects the last owner so a task can be added straight away", async () => {
+    localStorage.setItem("indy:last-owner", "colofill");
+    const repository = createRepository();
+    render(<DashboardDataProvider repository={repository}><ActionPlanWorkspace /></DashboardDataProvider>);
+    fireEvent.change(await screen.findByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-24" } });
+
+    expect(screen.getByRole("combobox", { name: "ผู้รับผิดชอบงานใหม่" })).toHaveValue("colofill");
+    fireEvent.change(screen.getByRole("textbox", { name: "เพิ่มงานทั่วไป" }), { target: { value: "ซื้อของ" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มงาน" }));
+
+    expect(await screen.findByRole("checkbox", { name: "ทำเสร็จ ซื้อของ" })).toBeVisible();
+    expect((await repository.read()).actionTasks).toEqual([expect.objectContaining({ title: "ซื้อของ", owner: "colofill" })]);
+  });
+
+  it("shows a failed save right under the add form", async () => {
+    const repository = createRepository();
+    repository.write = async () => { throw new Error("บันทึกข้อมูลลงเซิร์ฟเวอร์ไม่สำเร็จ"); };
+    render(<DashboardDataProvider repository={repository}><ActionPlanWorkspace /></DashboardDataProvider>);
+    fireEvent.change(await screen.findByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-24" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "ผู้รับผิดชอบงานใหม่" }), { target: { value: "colofill" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "เพิ่มงานทั่วไป" }), { target: { value: "ซื้อของ" } });
+    fireEvent.click(screen.getByRole("button", { name: "เพิ่มงาน" }));
+
+    const today = screen.getByRole("region", { name: "งานของวันที่เลือก" });
+    expect(await within(today).findByRole("alert")).toHaveTextContent("บันทึกข้อมูลลงเซิร์ฟเวอร์ไม่สำเร็จ");
+    expect(screen.getByRole("textbox", { name: "เพิ่มงานทั่วไป" })).toHaveValue("ซื้อของ");
   });
 
   it("assigns a quick-added task to the selected owner and hides it from other owners", async () => {
