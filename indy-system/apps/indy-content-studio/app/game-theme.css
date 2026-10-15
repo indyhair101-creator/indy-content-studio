@@ -598,7 +598,6 @@ main.login-screen {
   padding: 11px 16px; border: 2px solid var(--outline); border-radius: 8px; background: linear-gradient(180deg, #fffaf0, #efdcbc);
   color: var(--ink); font-weight: 600; box-shadow: var(--bevel), var(--press);
 }
-.today-schedule { max-height: none; overflow: visible; padding-right: 0; }
 .today-task.is-overdue { border-color: var(--ribbon-red-dark); background: #fff1ec; }
 .overdue-pill { padding: 3px 8px; border: 1.5px solid var(--outline); border-radius: 5px; background: var(--ribbon-red); color: #fff6e6; font-size: 12px; font-weight: 600; }
 .overdue-count { color: #9b2c1c !important; font-weight: 600; }
@@ -678,4 +677,36 @@ main.login-screen {
 @media (max-width: 760px) {
   .today-heading-row h1 { justify-self: start; }
   .today-actions > button { padding: 10px 12px; font-size: 15px; white-space: nowrap; }
+}
+
+/* ---------- Scrolling: the menu and header stay put; long content scrolls inside its own panel ---------- */
+.scroll-panel, .today-schedule, .action-today-list, .action-today-suggestions, .production-card-list, .report-table-wrap,
+.reference-album-content, .settings-list, .corrections-workspace ul, .make-delivery-workspace ul {
+  scrollbar-width: auto;
+  scrollbar-color: var(--wood) rgba(201, 167, 122, .35);
+  overscroll-behavior: contain;
+}
+@media (min-width: 761px) {
+  .app-shell { box-sizing: border-box; height: 100vh; overflow: hidden; }
+  .dashboard-nav { overflow-y: auto; scrollbar-width: none; }
+  .workspace-frame { display: flex; min-height: 0; flex-direction: column; }
+  .command-capsule { flex: 0 0 auto; }
+  main {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; scroll-behavior: smooth;
+    scrollbar-width: auto; scrollbar-color: var(--wood) rgba(201, 167, 122, .45); scrollbar-gutter: stable;
+  }
+
+  .today-schedule { max-height: 430px; overflow-y: auto; padding-right: 8px; }
+  .action-today-list { max-height: 560px; overflow-y: auto; padding-right: 8px; }
+  .action-today-suggestions { max-height: 680px; overflow-y: auto; }
+  .production-card-list { max-height: 520px; overflow-y: auto; padding-right: 4px; }
+  .report-table-wrap { max-height: 460px; overflow: auto; }
+  .report-table-wrap thead th { position: sticky; top: 0; z-index: 1; background: #ead6b4; }
+  .reference-album-content { max-height: 560px; overflow-y: auto; }
+  .settings-list { max-height: 420px; overflow-y: auto; padding-right: 6px; }
+  .corrections-workspace ul, .make-delivery-workspace ul { max-height: 520px; overflow-y: auto; padding-right: 6px; }
+}
+@media (min-width: 761px) {
+  .workspace-heading-row h1, .today-overview h1, .report-workspace h1, .report-header h2, .references-workspace h1 { white-space: nowrap; }
+  .workspace-heading-row > div:first-child { flex-shrink: 0; }
 }
