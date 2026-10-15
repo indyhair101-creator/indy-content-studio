@@ -29,6 +29,8 @@ export function applyDashboardImport(current: DashboardState, input: DashboardBa
   if (options.mode === "replace") return importWorkStatusHistory(current, clone(backup.data) as DashboardState, backup.data.statusHistory);
 
   const next = clone(current);
+  const existingAlbumIds = new Set((next.referenceAlbums ?? []).map((album) => album.id));
+  next.referenceAlbums = [...(next.referenceAlbums ?? []), ...clone((backup.data.referenceAlbums ?? []).filter((album) => !existingAlbumIds.has(album.id)))];
   const collections: BackupCollection[] = ["contents", "actionTasks", "media", "categories", "formats", "references", "captionTemplates", "corrections", "monthlyGoals", "categoryMonthlyGoals", "publicationAttempts", "integrations"];
   for (const collection of collections) {
     const existing = new Set((next[collection] as CollectionItem[]).map((item) => collectionKey(collection, item)).filter((key): key is string => Boolean(key)));

@@ -36,7 +36,7 @@ export interface DashboardTask {
   notes?: string;
   assets?: ContentAsset[];
   processSteps?: ProcessStep[];
-  platformSchedules?: Record<Platform, { enabled: boolean; date: string; time: string }>;
+  platformSchedules?: Partial<Record<Platform, { enabled: boolean; date: string; time: string }>>;
 }
 
 const workflowStageByStatus: Record<ProductionStatus, string> = {

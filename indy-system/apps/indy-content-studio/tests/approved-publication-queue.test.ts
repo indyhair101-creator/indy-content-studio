@@ -39,6 +39,26 @@ function fixture() {
 }
 
 describe("durable approved publication queue", () => {
+  it("never enqueues Salon-only content from either dashboard or LINE approval", async () => {
+    const f = fixture();
+    f.state.contents[0].schedules = [{ platform: "salon", enabled: true, publishAt: "2026-10-01T02:00:00.000Z", latestAttemptId: null, manualEvidence: null }];
+    f.snapshot.content.schedules = structuredClone(f.state.contents[0].schedules);
+    f.state.contents[0].localApproval = "approved";
+    await expect(f.queue.enqueueDashboard("content")).rejects.toThrow();
+    await f.queue.enqueue(f.review);
+    expect(f.jobs.size).toBe(0);
+    expect(f.fetcher).not.toHaveBeenCalled();
+  });
+
+  it("excludes Salon when a mixed-channel item is queued", async () => {
+    const f = fixture();
+    f.state.contents[0].schedules.push({ platform: "salon", enabled: true, publishAt: "2026-10-01T02:00:00.000Z", latestAttemptId: null, manualEvidence: null });
+    f.snapshot.content.schedules = structuredClone(f.state.contents[0].schedules);
+    f.state.contents[0].localApproval = "approved";
+    await f.queue.enqueueDashboard("content");
+    expect([...f.jobs.values()].map(job=>job.platform).sort()).toEqual(["facebook", "instagram", "tiktok"]);
+    expect(f.fetcher).toHaveBeenCalledTimes(3);
+  });
   it("dispatches dashboard-approved content without creating a LINE approval and remains idempotent", async () => {
     const f = fixture(); f.review.approved = false;
     Object.assign(f.state.contents[0], { localApproval: "approved", lineReview: { ...f.state.contents[0].lineReview, status: "not-sent", activeCycleId: null, reviewCode: null } });

@@ -173,7 +173,7 @@ export function ContentEditorDialog({ mode, contentId, open, onClose }: {
 
   const hasActivePublication = Boolean(existing && dashboard.state?.publicationAttempts.some((attempt) => attempt.contentId === existing.id && ["submitting", "queued", "publishing"].includes(attempt.status)));
   const productionFinalReady = mode === "edit" && Boolean(existing) && draft.productionStatus === "ready" && draft.localApproval === "approved" && draft.processSteps.every((step) => step.status === "done");
-  const finalCandidate = productionFinalReady;
+  const finalCandidate = productionFinalReady && draft.schedules.some((schedule) => schedule.enabled && schedule.platform !== "salon");
 
   return (
     <div className="settings-dialog-backdrop">
@@ -245,7 +245,7 @@ export function ContentEditorDialog({ mode, contentId, open, onClose }: {
           </fieldset>
         </details>}
 
-        {productionFinalReady && <p className="editor-helper">เมื่อคลิปและแคปชันได้รับอนุมัติผ่าน LINE แล้ว จึงส่งไป Make ตามเวลาของแต่ละช่องทางได้</p>}
+        {finalCandidate && <p className="editor-helper">เมื่อคลิปและแคปชันได้รับอนุมัติผ่าน LINE แล้ว จึงส่งไป Make ตามเวลาของแต่ละช่องทางได้</p>}
         {finalCandidate && hasActivePublication && <p className="editor-helper">งานนี้อยู่ในคิว Make แล้ว จึงล็อกชื่อ แคปชัน รูปแบบ และกำหนดการจนกว่าจะได้รับผลยกเลิกหรือเผยแพร่</p>}
 
         <div className="settings-dialog-actions">

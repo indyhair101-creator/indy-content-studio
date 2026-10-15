@@ -12,7 +12,7 @@ export interface CreateContentInput {
   objective: string;
   plannedDate: string;
   notes: string;
-  platformSchedules: Record<Platform, { enabled: boolean; date: string; time: string }>;
+  platformSchedules: Partial<Record<Platform, { enabled: boolean; date: string; time: string }>>;
 }
 
 interface CreateContentModalProps {
@@ -30,6 +30,7 @@ const platforms: Array<{ value: Platform; label: string }> = [
   { value: "facebook", label: "Facebook" },
   { value: "instagram", label: "Instagram" },
   { value: "tiktok", label: "TikTok" },
+  { value: "salon", label: "Salon" },
 ];
 
 function createPlatformSchedules(date = "") {
@@ -92,8 +93,8 @@ export function CreateContentModal({ open, onClose, onCreate, categories, format
     }
   }
 
-  function updatePlatform(platform: Platform, values: Partial<CreateContentInput["platformSchedules"][Platform]>) {
-    setInput((current) => ({ ...current, platformSchedules: { ...current.platformSchedules, [platform]: { ...current.platformSchedules[platform], ...values } } }));
+  function updatePlatform(platform: Platform, values: Partial<{ enabled: boolean; date: string; time: string }>) {
+    setInput((current) => ({ ...current, platformSchedules: { ...current.platformSchedules, [platform]: { ...(current.platformSchedules[platform] ?? { enabled: false, date: current.plannedDate, time: "09:00" }), ...values } } }));
   }
 
   return (
@@ -127,11 +128,11 @@ export function CreateContentModal({ open, onClose, onCreate, categories, format
           <fieldset>
             <legend>3 · วางแผนในปฏิทิน</legend>
             <label>วันที่ลงในปฏิทิน<input type="date" value={input.plannedDate} disabled={isSubmitting} onChange={(event) => updateField("plannedDate", event.target.value)} /></label>
-            <p className="field-hint">เลือกช่องทางและกำหนดวันเวลาลงแยกกันได้ ระบบจะแสดงแต่ละช่องทางเป็นการ์ดในปฏิทิน</p>
+            <p className="field-hint">เลือกช่องทางและกำหนดวันเวลาลงแยกกันได้ Salon ใช้วางแผนในปฏิทินและ Action Plan เท่านั้น</p>
             <div className="platform-schedule-fields" aria-label="กำหนดวันเวลารายช่องทาง">
               {platforms.map(({ value, label }) => {
-                const schedule = input.platformSchedules[value];
-                const supported = allowedPlatforms.includes(value);
+                const schedule = input.platformSchedules[value] ?? { enabled: false, date: input.plannedDate, time: "09:00" };
+                const supported = value === "salon" || allowedPlatforms.includes(value);
                 return <div className="platform-schedule-row" key={value}>
                   <label className="platform-schedule-toggle"><span className="platform-schedule-name">{label}</span><input type="checkbox" aria-label={`เปิด ${label}`} checked={schedule.enabled} disabled={isSubmitting || !supported} onChange={(event) => updatePlatform(value, { enabled: event.target.checked, date: event.target.checked && !schedule.date ? input.plannedDate : schedule.date })} /></label>
                   {!supported && <span className="field-hint">รูปแบบนี้ไม่รองรับช่องทาง {label}</span>}

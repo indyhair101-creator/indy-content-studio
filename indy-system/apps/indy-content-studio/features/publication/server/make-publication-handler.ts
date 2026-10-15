@@ -33,6 +33,7 @@ export function buildMakePublicationPayload({ state, content, platform, schedule
   environment?: Environment;
   now?: () => number;
 }): MakePublicationPayload {
+  if (platform === "salon" || schedule.platform === "salon") throw new MakePublicationValidationError("Salon ใช้สำหรับปฏิทินและ Action Plan เท่านั้น");
   if (!schedule.publishAt) throw new Error("ยังไม่ได้กำหนดเวลาลง");
   if (content.assetIds.length !== 1 || state.media.find((asset) => asset.id === content.assetIds[0])?.mimeType !== "video/mp4") {
     throw new MakePublicationValidationError("Scenario Make ปัจจุบันรองรับวิดีโอหนึ่งไฟล์ต่อโพสต์ กรุณาเลือก MP4 หนึ่งไฟล์");

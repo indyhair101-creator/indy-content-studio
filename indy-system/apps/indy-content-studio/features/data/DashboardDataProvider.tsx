@@ -85,18 +85,8 @@ export function DashboardDataProvider({
   useEffect(() => {
     const unsubscribe = activeRepository.subscribe(applySnapshot);
     void loadAndTrack().catch(() => undefined);
-    const refreshWhenVisible = () => {
-      if (document.visibilityState !== "hidden") void loadAndTrack().catch(() => undefined);
-    };
-    const interval = window.setInterval(refreshWhenVisible, 15_000);
-    window.addEventListener("focus", refreshWhenVisible);
-    document.addEventListener("visibilitychange", refreshWhenVisible);
-    return () => {
-      unsubscribe();
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshWhenVisible);
-      document.removeEventListener("visibilitychange", refreshWhenVisible);
-    };
+    // Initial load and explicit reload only. Saves still publish their confirmed snapshot.
+    return unsubscribe;
   }, [activeRepository, applySnapshot, loadAndTrack]);
 
   const mutate = useCallback(async (mutation: DashboardMutation) => {

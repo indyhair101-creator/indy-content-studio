@@ -40,6 +40,7 @@ export function validateDashboardBackup(input: unknown): DashboardBackupV1 {
     if (!Array.isArray(rawData[collection])) throw new DashboardBackupValidationError(`ข้อมูล ${collection} ไม่ถูกต้อง`);
   }
   if (rawData.actionTasks !== undefined && !Array.isArray(rawData.actionTasks)) throw new DashboardBackupValidationError("ข้อมูล actionTasks ไม่ถูกต้อง");
+  if (rawData.referenceAlbums !== undefined && !Array.isArray(rawData.referenceAlbums)) throw new DashboardBackupValidationError("ข้อมูลอัลบั้ม Reference ไม่ถูกต้อง");
   if (rawData.categoryMonthlyGoals !== undefined && !Array.isArray(rawData.categoryMonthlyGoals)) throw new DashboardBackupValidationError("ข้อมูล categoryMonthlyGoals ไม่ถูกต้อง");
   const rawOwnerOptions = rawData.ownerOptions as unknown;
   if (rawOwnerOptions !== undefined && (!Array.isArray(rawOwnerOptions) || rawOwnerOptions.some((name) => typeof name !== "string" || !name.trim()))) throw new DashboardBackupValidationError("รายชื่อผู้รับผิดชอบไม่ถูกต้อง");
@@ -51,6 +52,18 @@ export function validateDashboardBackup(input: unknown): DashboardBackupV1 {
   const categoryIds = ids(data.categories, "categories");
   const formatIds = ids(data.formats, "formats");
   const referenceIds = ids(data.references, "references");
+  const albumIds = ids(data.referenceAlbums ?? [], "referenceAlbums");
+  const albumNames = new Set<string>();
+  for (const album of data.referenceAlbums ?? []) {
+    if (typeof album.name !== "string" || !album.name.trim() || typeof album.createdAt !== "string" || typeof album.updatedAt !== "string") throw new DashboardBackupValidationError("ข้อมูลอัลบั้ม Reference ไม่ถูกต้อง");
+    const name = album.name.trim().toLocaleLowerCase();
+    if (albumNames.has(name)) throw new DashboardBackupValidationError("ชื่ออัลบั้ม Reference ซ้ำ");
+    albumNames.add(name);
+  }
+  for (const reference of data.references) {
+    if (reference.albumId != null && !albumIds.has(reference.albumId)) throw new DashboardBackupValidationError("Reference อ้างอิงอัลบั้มที่ไม่มี");
+    if (reference.assetIds !== undefined && (!Array.isArray(reference.assetIds) || new Set(reference.assetIds).size !== reference.assetIds.length || reference.assetIds.some((id) => !mediaIds.has(id)))) throw new DashboardBackupValidationError("Reference อ้างอิงสื่อที่ไม่มี");
+  }
   const contentIds = ids(data.contents, "contents");
   ids(data.actionTasks, "actionTasks");
   const goalKeys = new Set<string>();

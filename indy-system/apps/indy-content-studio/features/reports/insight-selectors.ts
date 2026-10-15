@@ -3,12 +3,18 @@ import { inReportRange, shiftDate } from "./report-dates";
 import type { MetricKey, MetricObservation, ReportFilters, ReportPublication } from "./report-types";
 
 export const INSIGHT_METRICS: MetricKey[] = ["views", "reach", "uniqueViewers", "likes", "comments", "shares", "saves", "followers", "clicks", "conversions", "watchSeconds", "averageWatchSeconds", "averageWatchPercent", "completionRate"];
-export interface InsightPublication { publication: ReportPublication; observations: MetricObservation[]; metrics: Partial<Record<MetricKey, number | null>>; content: ContentItem; }
-export interface InsightContent { content: ContentItem; publications: InsightPublication[]; }
+type InsightContentData = Pick<ContentItem, "id" | "title" | "owner" | "categoryId" | "formatId" | "caption" | "notes" | "assetIds"> & { objective: ContentItem["objective"] | "" };
+export interface InsightPublication { publication: ReportPublication; observations: MetricObservation[]; metrics: Partial<Record<MetricKey, number | null>>; content: InsightContentData; }
+export interface InsightContent { content: InsightContentData; publications: InsightPublication[]; }
 export function safePostUrl(value: string | null): string | null {
   try { const url = new URL(value ?? ""); return ["https:", "http:"].includes(url.protocol) ? url.href : null; } catch { return null; }
 }
 const known = (value: number | null | undefined): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
+// Upstream freshness is provenance, not a different counter definition. Preserve
+// the original label in details; normalize only our own API label for totals.
+const metricSource = (o: MetricObservation) => o.source === "api" && /^Zernio \/ (facebook|instagram|tiktok|youtube) — ยอดสะสม;/.test(o.sourceLabel)
+  ? o.sourceLabel.replace(/; ต้นทางอัปเดต (?:\d{4}-\d{2}-\d{2}T[0-9:.]+Z|ไม่ระบุ)(?=;)/, "")
+  : o.sourceLabel;
 const overlaps = (a: MetricObservation, b: MetricObservation) => !a.period || !b.period || (a.period.start <= b.period.end && b.period.start <= a.period.end);
 
 /** A lifetime snapshot is never an activity interval. Overlapping exports are not additive. */
@@ -17,7 +23,7 @@ export function selectObservations(observations: MetricObservation[], filters: R
     .filter(o => filters.traffic === "any" || o.traffic === filters.traffic)
     .sort((a, b) => Date.parse(b.fetchedAt) - Date.parse(a.fetchedAt) || a.id.localeCompare(b.id));
   // All-traffic and its organic/paid subsets must not be counted together.
-  const traffic = filters.traffic === "any" ? (candidates.some(o => o.traffic === "all") ? "all" : candidates[0]?.traffic) : filters.traffic;
+  const traffic = filters.traffic === "any" ? (candidates.some(o => o.traffic === "all") ? "all" : candidates.some(o => o.traffic === "unknown") ? "unknown" : candidates[0]?.traffic) : filters.traffic;
   return candidates.filter(o => o.traffic === traffic);
 }
 export function metricObservations(observations: MetricObservation[], metric: MetricKey): MetricObservation[] {
@@ -50,9 +56,13 @@ export function selectInsightPublications(state: DashboardState, filters: Report
   return [...identities.values()].flatMap(aliases => {
     const mappedIds = new Set(aliases.map(p => p.contentId).filter(id => id !== null));
     // A physical post cannot belong to two main content rows; leave conflicts for explicit rematching.
-    if (mappedIds.size !== 1) return [];
-    const publication = aliases.find(p => p.contentId !== null)!;
-    const content = publication.contentId ? contents.get(publication.contentId) : undefined;
+    if (mappedIds.size > 1) return [];
+    const publication = aliases.find(p => p.contentId !== null) ?? aliases[0];
+    // A provider post is reportable before it is linked to a calendar task. This
+    // display-only identity never creates a task or invents an owner/objective.
+    const content: InsightContentData | undefined = publication.contentId ? contents.get(publication.contentId) : {
+      id: `publication:${publication.id}`, title: publication.title || "โพสต์ไม่มีชื่อ", owner: "", categoryId: "", formatId: "", objective: "", caption: publication.title, notes: "", assetIds: [],
+    };
     if (!content || (filters.platform !== "all" && publication.platform !== filters.platform) || (filters.accountId && publication.accountId !== filters.accountId) || (filters.owner && content.owner !== filters.owner) || (filters.categoryId && content.categoryId !== filters.categoryId) || (filters.formatId && content.formatId !== filters.formatId) || (filters.objective && content.objective !== filters.objective) || (filters.videoOnly && publication.mediaKind !== "video")) return [];
     if ((filters.minDuration !== null || filters.maxDuration !== null) && (publication.durationSeconds === null || (filters.minDuration !== null && publication.durationSeconds < filters.minDuration) || (filters.maxDuration !== null && publication.durationSeconds > filters.maxDuration))) return [];
     if (filters.dateBasis === "published" && !inReportRange(publication.publishedAt, filters.range)) return [];
@@ -71,7 +81,7 @@ export function aggregateInsightMetric(rows: InsightPublication[], metric: Metri
   if (!rows.length || rows.some(row => !known(row.metrics[metric]))) return null;
   if (rows.length === 1) return rows[0].metrics[metric]!;
   if (["reach", "uniqueViewers", "averageWatchPercent", "completionRate"].includes(metric)) return null;
-  const signatures = new Set(rows.flatMap(row => metricObservations(row.observations, metric).map(o => `${row.publication.platform}:${o.source}:${o.sourceLabel}:${o.traffic}:${o.scope}:${o.timeZone ?? "unknown"}`)));
+  const signatures = new Set(rows.flatMap(row => metricObservations(row.observations, metric).map(o => `${row.publication.platform}:${o.source}:${metricSource(o)}:${o.traffic}:${o.scope}:${o.timeZone ?? "unknown"}`)));
   if (signatures.size !== 1) return null;
   if (metric === "averageWatchSeconds") {
     const observations = rows.flatMap(row => metricObservations(row.observations, metric));

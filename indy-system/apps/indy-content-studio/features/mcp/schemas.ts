@@ -11,7 +11,7 @@ export const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
     "Use a real date and time as YYYY-MM-DDTHH:mm in the dashboard timezone");
 const identifier = z.string().trim().min(1).max(200);
 const title = z.string().trim().min(1).max(300);
-export const platform = z.enum(["facebook", "instagram", "tiktok"]);
+export const platform = z.enum(["facebook", "instagram", "tiktok", "salon"]);
 export const contentIdSchema = z.object({ content_id: identifier }).strict();
 export const listContentSchema = z.object({
   query: z.string().max(200).optional(),

@@ -15,11 +15,10 @@ export class ApiDashboardRepository implements DashboardRepository {
   private snapshot: DashboardState | null = null;
   private snapshotVersion: number | null = null;
   private readonly listeners = new Set<DashboardListener>();
-  private stopRefreshing: (() => void) | null = null;
-  private refreshing = false;
 
   async read(): Promise<DashboardState> {
-    const response = await fetch("/api/dashboard-state", { cache: "no-store" });
+    const response = await fetch("/api/dashboard-state", { cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    if (response.status === 401) throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง");
     if (!response.ok) throw new Error("โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ");
     const payload = await response.json() as DashboardStateResponse;
     if (this.version !== null && payload.version < this.version) {
@@ -62,30 +61,6 @@ export class ApiDashboardRepository implements DashboardRepository {
 
   subscribe(listener: DashboardListener): () => void {
     this.listeners.add(listener);
-    if (!this.stopRefreshing && typeof window !== "undefined") {
-      const refresh = () => { void this.refresh(); };
-      const timer = window.setInterval(refresh, 15000);
-      window.addEventListener("focus", refresh);
-      this.stopRefreshing = () => {
-        window.clearInterval(timer);
-        window.removeEventListener("focus", refresh);
-      };
-    }
-    return () => {
-      this.listeners.delete(listener);
-      if (this.listeners.size === 0) { this.stopRefreshing?.(); this.stopRefreshing = null; }
-    };
-  }
-
-  private async refresh(): Promise<void> {
-    if (this.refreshing || this.listeners.size === 0) return;
-    this.refreshing = true;
-    const previousVersion = this.snapshotVersion;
-    try {
-      const state = await this.read();
-      if (this.snapshotVersion !== previousVersion) this.listeners.forEach((listener) => listener(cloneDashboardState(state)));
-    } catch {
-      // A temporary polling failure keeps the last confirmed snapshot; explicit reload still reports errors.
-    } finally { this.refreshing = false; }
+    return () => { this.listeners.delete(listener); };
   }
 }

@@ -10,6 +10,7 @@ export interface PublicationPlanInput {
 }
 
 export function createPublicationAttempt(state: DashboardState, input: PublicationPlanInput, now: string): DashboardState {
+  if (input.platform === "salon") throw new Error("Salon ใช้สำหรับปฏิทินและ Action Plan เท่านั้น");
   const content = state.contents.find((item) => item.id === input.contentId && !item.deletedAt);
   if (!content) throw new Error("ไม่พบคอนเทนต์สำหรับเผยแพร่");
   if (content.localApproval !== "approved") throw new Error("ต้องอนุมัติคอนเทนต์ก่อนเผยแพร่");

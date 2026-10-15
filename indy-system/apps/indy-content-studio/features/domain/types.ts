@@ -7,7 +7,8 @@ export type ProductionStatus =
   | "ready"
   | "published";
 
-export type Platform = "facebook" | "instagram" | "tiktok";
+export type SocialPlatform = "facebook" | "instagram" | "tiktok";
+export type Platform = SocialPlatform | "salon";
 export type StepStatus = "todo" | "doing" | "done";
 export type ContentObjective = "branding" | "awareness" | "lead" | "engagement" | "sales";
 export type ContentPriority = "urgent" | "high" | "normal" | "low";
@@ -122,6 +123,15 @@ export interface ReferenceIdea {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  albumId?: string | null;
+  assetIds?: string[];
+}
+
+export interface ReferenceAlbum {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CaptionTemplateVersion {
@@ -197,6 +207,7 @@ export interface DashboardState {
   formats: FormatDefinition[];
   ownerOptions: string[];
   references: ReferenceIdea[];
+  referenceAlbums?: ReferenceAlbum[];
   captionTemplates: CaptionTemplate[];
   corrections: CorrectionRequest[];
   monthlyGoals: MonthlyGoal[];

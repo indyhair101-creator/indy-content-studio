@@ -86,7 +86,7 @@ export class ApprovedPublicationQueue {
       const content = dashboard.state.contents.find(item => item.id === contentId && !item.deletedAt);
       if (!content) throw new PublicationQueueError("ไม่พบคอนเทนต์", 409);
       const now = this.now();
-      const schedules = content.schedules.filter(schedule => schedule.enabled);
+      const schedules = content.schedules.filter(schedule => schedule.enabled && schedule.platform !== "salon");
       const reasons = schedules.flatMap(schedule => getPublicationEligibility(dashboard.state, contentId, schedule.platform, now).reasons);
       if (!schedules.length) reasons.push("ยังไม่ได้เปิดกำหนดการของช่องทางใด");
       if (reasons.length) throw new PublicationQueueError([...new Set(reasons)].join(" · "), 409);
@@ -114,7 +114,8 @@ export class ApprovedPublicationQueue {
   async enqueue(input: ApprovedReviewInput): Promise<void> {
     const review = await this.store.getReview(input.reviewCode);
     if (!review?.approved || !review.snapshot || review.contentId !== input.contentId || review.cycleId !== input.cycleId) throw new PublicationQueueError("A stored approved review snapshot is required", 409);
-    const now = this.now(); const enabled = review.snapshot.content.schedules.filter((schedule) => schedule.enabled);
+    const now = this.now(); const enabled = review.snapshot.content.schedules.filter((schedule) => schedule.enabled && schedule.platform !== "salon");
+    if (!enabled.length && review.snapshot.content.schedules.some(schedule => schedule.enabled && schedule.platform === "salon")) return;
     const schedules = enabled.length ? enabled : platforms.map((platform) => ({ platform, publishAt: null }));
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const dashboard = await this.store.loadDashboard();

@@ -13,7 +13,12 @@ export async function reportConnections(request: Request, deps: ProviderDependen
 export async function fetchReportProviders(range: ReportRange, deps: ProviderDependencies, options: { probe?: boolean; platform?: ReportPlatform; accountId?: string } = {}) {
   const platforms = options.platform ? [options.platform] : REPORT_PLATFORMS;
   const env = deps.env ?? process.env;
-  const directPlatforms = platforms.filter((p) => { const nativeId = env[REPORT_SETUP[p].variables.find((v) => v.endsWith("_ID"))!]; return !options.accountId || options.accountId === nativeId || options.accountId === `report:${p}:${nativeId}`; });
+  const directPlatforms = platforms.filter((p) => {
+    const accountVariable = p === "instagram" ? "REPORT_INSTAGRAM_ACCOUNT_ID" : REPORT_SETUP[p].variables.find((v) => v.endsWith("_ID"))!;
+    const nativeId = env[accountVariable];
+    const canDiscoverInstagram = p === "instagram" && !nativeId && Boolean(env.REPORT_FACEBOOK_PAGE_ID);
+    return !options.accountId || options.accountId === nativeId || options.accountId === `report:${p}:${nativeId}` || canDiscoverInstagram;
+  });
   const [zernio, direct] = await Promise.all([fetchZernio(range, deps, options), Promise.all(directPlatforms.map((p) => fetchProvider(p, range, deps, options.probe)))]);
   const filtered = direct.filter((r) => {
     const c = r.connection;

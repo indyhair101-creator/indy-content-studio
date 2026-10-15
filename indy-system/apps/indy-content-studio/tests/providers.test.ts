@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { fetchProvider } from "../features/reports/server/providers";
-import { reportConnections, reportSync } from "../features/reports/server/report-http";
+import { fetchReportProviders, reportConnections, reportSync } from "../features/reports/server/report-http";
 import { createAdminSessionToken } from "../features/auth/server/admin-session";
 import { validateReportingState } from "../features/reports/report-schema";
 
@@ -39,17 +39,17 @@ describe("report provider boundaries", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("maps known zero, never invents reach or organic and never follows credentialed next URL", async () => {
-    const fetcher = queue({ id: "page1", name: "Page" }, { data: [fbRow], paging: { cursors: { after: "cursor1" }, next: `https://evil.test/?access_token=${token}` } }, { data: [] });
+    const fetcher = queue({ id: "page1", name: "Page" }, { data: [fbRow], paging: { cursors: { after: "cursor1" }, next: `https://evil.test/?access_token=${token}` } }, { data: [] }, { data: [] });
     const result = await fetchProvider("facebook", range, { env: fb, fetch: fetcher, now });
     expect(result.observations[0]).toMatchObject({ scope: "lifetime", period: null, traffic: "unknown", metrics: { comments: 0, shares: 5 }, averageWatchWeight: null });
     expect(result.observations[0].metrics.reach).toBeUndefined();
     expect(fetcher.mock.calls.every(([url]) => new URL(String(url)).hostname === "graph.facebook.com")).toBe(true);
-    expect(String(fetcher.mock.calls[2][0])).toContain("after=cursor1");
+    expect(String(fetcher.mock.calls[3][0])).toContain("after=cursor1");
     expect(JSON.stringify(result)).not.toContain(token);
     expect(() => validateReportingState({ connections: [result.connection], publications: result.publications, observations: result.observations, savedReports: [] })).not.toThrow();
   });
   it("retains first-page data on expiration, sanitizes errors", async () => {
-    const fetcher = queue({ id: "page1" }, { data: [fbRow], paging: { cursors: { after: "next" }, next: "yes" } }, response({ error: { code: 190, message: token } }, 400));
+    const fetcher = queue({ id: "page1" }, { data: [fbRow], paging: { cursors: { after: "next" }, next: "yes" } }, { data: [] }, response({ error: { code: 190, message: token } }, 400));
     const result = await fetchProvider("facebook", range, { env: fb, fetch: fetcher, now });
     expect(result.publications).toHaveLength(1); expect(result.observations).toHaveLength(1);
     expect(result.connection.status).toBe("expired"); expect(JSON.stringify(result)).not.toContain(token);
@@ -59,6 +59,28 @@ describe("report provider boundaries", () => {
     const result = await fetchProvider("instagram", range, { env: { REPORT_META_GRAPH_VERSION: "v24.0", REPORT_INSTAGRAM_ACCOUNT_ID: "ig1", REPORT_INSTAGRAM_ACCESS_TOKEN: token }, fetch: fetcher, now });
     expect(result.connection.status).toBe("missing-permission"); expect(result.observations[0].metrics).toEqual({ likes: 7 });
     expect(result.observations[0].metrics.comments).toBeUndefined();
+  });
+  it("discovers the linked Instagram professional account from the configured Facebook Page", async () => {
+    const fetcher = queue(
+      { instagram_business_account: { id: "ig1" } },
+      { id: "ig1", username: "indyhair_academy" },
+      { data: [] },
+    );
+    const result = await fetchProvider("instagram", range, { env: { REPORT_META_GRAPH_VERSION: "v24.0", REPORT_FACEBOOK_PAGE_ID: "page1", REPORT_INSTAGRAM_ACCESS_TOKEN: token }, fetch: fetcher, now }, true);
+    expect(result.connection).toMatchObject({ id: "report:instagram:ig1", accountId: "ig1", label: "indyhair_academy", status: "connected" });
+    expect(String(fetcher.mock.calls[0][0])).toContain("page1");
+    expect(String(fetcher.mock.calls[0][0])).toContain("instagram_business_account");
+    expect(JSON.stringify(result)).not.toContain(token);
+  });
+  it("syncs a discovered Instagram connection by its resolved account ID", async () => {
+    const fetcher = queue(
+      { instagram_business_account: { id: "ig1" } },
+      { id: "ig1", username: "indyhair_academy" },
+      { data: [] },
+    );
+    const result = await fetchReportProviders(range, { env: { REPORT_META_GRAPH_VERSION: "v24.0", REPORT_FACEBOOK_PAGE_ID: "page1", REPORT_INSTAGRAM_ACCESS_TOKEN: token }, fetch: fetcher, now }, { probe: true, platform: "instagram", accountId: "report:instagram:ig1" });
+    expect(result.connections).toHaveLength(1);
+    expect(result.connections[0]).toMatchObject({ id: "report:instagram:ig1", accountId: "ig1", status: "connected" });
   });
   it("maps TikTok Display counters to lifetime and stops after three pages", async () => {
     const page = { data: { videos: [{ id: "v1", share_url: "https://tiktok.com/@test/video/v1", create_time: 1790812800, view_count: 100, like_count: 2, duration: 18 }], has_more: true, cursor: 1 }, error: { code: "ok" } };

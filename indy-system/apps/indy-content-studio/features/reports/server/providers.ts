@@ -5,21 +5,21 @@ type Json = Record<string, any>;
 export interface ProviderResult { connection: ReportConnection; publications: ReportPublication[]; observations: MetricObservation[]; warnings: string[]; truncated: boolean }
 export interface ProviderDependencies { env?: Record<string, string | undefined>; fetch?: typeof fetch; now?: () => Date }
 export const REPORT_SETUP: Record<ReportPlatform, { variables: string[]; permissions: string; limitation: string }> = {
-  facebook: { variables: ["REPORT_META_GRAPH_VERSION", "REPORT_FACEBOOK_PAGE_ID", "REPORT_FACEBOOK_PAGE_TOKEN"], permissions: "Page access token: pages_read_engagement", limitation: "จำนวนความคิดเห็นและแชร์สะสม • ไม่ดึง Reach หรือ Organic ที่ยังไม่ยืนยัน" },
-  instagram: { variables: ["REPORT_META_GRAPH_VERSION", "REPORT_INSTAGRAM_ACCOUNT_ID", "REPORT_INSTAGRAM_ACCESS_TOKEN"], permissions: "Facebook Login: instagram_basic, pages_read_engagement; Insights: instagram_manage_insights", limitation: "บัญชี Business/Creator • ไลก์/ความคิดเห็นสะสม • Insights แยกตามสิทธิ์และชนิดสื่อ" },
+  facebook: { variables: ["REPORT_META_GRAPH_VERSION", "REPORT_FACEBOOK_PAGE_ID", "REPORT_FACEBOOK_PAGE_TOKEN"], permissions: "Page access token: pages_read_engagement, read_insights", limitation: "ยอดดู/แสดงผล ไลก์ คอมเมนต์ แชร์ และสถิติวิดีโอที่ API รองรับ • Organic แยกจากยอดรวมเฉพาะเมื่อ API ส่งค่ามา" },
+  instagram: { variables: ["REPORT_META_GRAPH_VERSION", "REPORT_FACEBOOK_PAGE_ID", "REPORT_INSTAGRAM_ACCESS_TOKEN"], permissions: "Facebook Login: instagram_basic, pages_read_engagement; ระบบค้นหา Account ID จากเพจ Facebook ที่เชื่อมไว้; Insights: instagram_manage_insights", limitation: "บัญชี Business/Creator • ไลก์/ความคิดเห็นสะสม • Insights แยกตามสิทธิ์และชนิดสื่อ" },
   youtube: { variables: ["REPORT_YOUTUBE_CHANNEL_ID", "REPORT_YOUTUBE_ACCESS_TOKEN"], permissions: "OAuth: youtube.readonly และ yt-analytics.readonly", limitation: "Data API เป็นยอดสะสม; Analytics เป็นผลในช่วงวัน Pacific ของ YouTube (ไม่ใช่วันกรุงเทพฯ)" },
   tiktok: { variables: ["REPORT_TIKTOK_OPEN_ID", "REPORT_TIKTOK_ACCESS_TOKEN"], permissions: "Login Kit / Display API: user.info.basic, video.list", limitation: "วิดีโอสาธารณะและยอดสะสม • ไม่มี Reach/เวลาเฉลี่ย/Retention ใน Display API" },
 };
 const labels: Record<ReportPlatform, string> = { facebook: "Facebook", instagram: "Instagram", youtube: "YouTube", tiktok: "TikTok" };
 export const REPORT_PLATFORMS = Object.keys(labels) as ReportPlatform[];
 class ProviderError extends Error {
-  constructor(readonly status: ReportConnection["status"], message: string) { super(message); }
+  constructor(readonly status: ReportConnection["status"], message: string, readonly code?: unknown) { super(message); }
 }
 export function classifyProviderError(status: number, code: unknown): ProviderError {
   if (status === 401 || code === 190 || code === "access_token_invalid" || code === "invalid_token") return new ProviderError("expired", "สิทธิ์เข้าถึงหมดอายุหรือใช้ไม่ได้ ให้ผู้ดูแลต่ออายุ token บนเซิร์ฟเวอร์แล้วตรวจใหม่");
   if (status === 403 || code === 10 || code === 200 || code === "scope_not_authorized") return new ProviderError("missing-permission", "บัญชีไม่มีสิทธิ์อ่านข้อมูลที่ร้องขอ ตรวจสิทธิ์แอปและบัญชีแล้วตรวจใหม่");
   if (status === 429 || code === 4 || code === 17 || code === "rate_limit_exceeded") return new ProviderError("error", "แพลตฟอร์มจำกัดการเรียกข้อมูล กรุณาลองใหม่ภายหลัง");
-  return new ProviderError("error", "แพลตฟอร์มส่งข้อมูลไม่สำเร็จหรือไม่รองรับข้อมูลนี้ ส่วนที่ดึงได้ยังคงใช้งานได้");
+  return new ProviderError("error", "แพลตฟอร์มส่งข้อมูลไม่สำเร็จหรือไม่รองรับข้อมูลนี้ ส่วนที่ดึงได้ยังคงใช้งานได้", code);
 }
 const number = (value: unknown): number | null => (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 const safeUrl = (value: unknown): string => { try { const url = new URL(String(value)); return url.protocol === "https:" && !url.searchParams.has("access_token") ? url.toString() : ""; } catch { return ""; } };
@@ -32,14 +32,15 @@ export async function fetchProvider(platform: ReportPlatform, range: ReportRange
   const fetchedAt = (deps.now?.() ?? new Date()).toISOString();
   const deadline = Date.now() + 45_000;
   const setup = REPORT_SETUP[platform];
-  const accountVariable = setup.variables.find((v) => v.endsWith("_ID"))!;
-  const account = env[accountVariable] ?? "";
-  const token = env[setup.variables.find((v) => v.endsWith("_TOKEN"))!] ?? "";
+  const accountVariable = platform === "instagram" ? "REPORT_INSTAGRAM_ACCOUNT_ID" : setup.variables.find((v) => v.endsWith("_ID"))!;
+  let account = env[accountVariable] ?? "";
+  let token = env[setup.variables.find((v) => v.endsWith("_TOKEN"))!] ?? "";
   const connection: ReportConnection = { id: `report:${platform}:${account || "unconfigured"}`, platform, accountId: account, label: labels[platform], status: "disconnected", checkedAt: fetchedAt, message: "", availableMetrics: [] };
   const result: ProviderResult = { connection, publications: [], observations: [], warnings: [], truncated: false };
-  const missing = setup.variables.filter((key) => !env[key]);
+  const missing = setup.variables.filter((key) => !env[key] && !(platform === "instagram" && key === "REPORT_FACEBOOK_PAGE_ID" && account));
   if (missing.length) { connection.message = `ยังไม่ตั้งค่าเซิร์ฟเวอร์: ${missing.join(", ")}`; return result; }
-  if (!/^[\w-]+$/.test(account) || ((platform === "facebook" || platform === "instagram") && !/^v\d+\.\d+$/.test(env.REPORT_META_GRAPH_VERSION!))) {
+  const canDiscoverInstagram = platform === "instagram" && /^[\w-]+$/.test(env.REPORT_FACEBOOK_PAGE_ID ?? "");
+  if ((!account && !canDiscoverInstagram) || (account && !/^[\w-]+$/.test(account)) || ((platform === "facebook" || platform === "instagram") && !/^v\d+\.\d+$/.test(env.REPORT_META_GRAPH_VERSION!))) {
     connection.status = "error"; connection.message = "รูปแบบรหัสบัญชีหรือ Graph API version บนเซิร์ฟเวอร์ไม่ถูกต้อง"; return result;
   }
   const request = async (base: string, params: Record<string, string> = {}, body?: Json): Promise<Json> => {
@@ -58,40 +59,75 @@ export async function fetchProvider(platform: ReportPlatform, range: ReportRange
     const item: ReportPublication = { id: `${platform}:${account}:${id}`, contentId: null, platform, accountId: account, providerPostId: id, url: safeUrl(url), title: String(title ?? "").slice(0, 2000), publishedAt, mediaKind, durationSeconds: seconds, thumbnailUrl: safeUrl(thumbnail) || null };
     result.publications.push(item); return item;
   };
-  const observe = (p: ReportPublication, metrics: MetricObservation["metrics"], sourceLabel: string, period: ReportRange | null = null) => {
+  const observe = (p: ReportPublication, metrics: MetricObservation["metrics"], sourceLabel: string, period: ReportRange | null = null, traffic: MetricObservation["traffic"] = "unknown") => {
     const present = Object.fromEntries(Object.entries(metrics).filter(([, value]) => value !== null && value !== undefined)) as MetricObservation["metrics"];
     if (!Object.keys(present).length) return;
-    const observation: MetricObservation = { id: `${p.id}:${period ? `activity:${period.start}:${period.end}` : "lifetime"}:${fetchedAt}`, publicationId: p.id, fetchedAt, source: "api", sourceLabel, scope: period ? "activity" : "lifetime", period, traffic: "unknown", metrics: present, averageWatchWeight: null, retention: null };
+    const observation: MetricObservation = { id: `${p.id}:${period ? `activity:${period.start}:${period.end}` : "lifetime"}:${traffic}:${fetchedAt}`, publicationId: p.id, fetchedAt, source: "api", sourceLabel, scope: period ? "activity" : "lifetime", period, traffic, metrics: present, averageWatchWeight: null, retention: null };
     if (platform === "youtube" && period) Object.assign(observation, { timeZone: "America/Los_Angeles" });
     result.observations.push(observation);
   };
   const partial = (error: unknown) => { const e = error instanceof ProviderError ? error : classifyProviderError(500, null); connection.status = e.status; result.warnings.push(e.message); };
+  // Unsupported optional metrics must not discard supported metrics in the same
+  // request. Only code 100 is split; expired/forbidden/rate-limited calls are not retried.
+  const insights = async (url: string, names: string[]): Promise<Json[]> => {
+    try {
+      const data = await request(url, { metric: names.join(","), period: "lifetime" });
+      return Array.isArray(data.data) ? data.data : [];
+    } catch (error) {
+      if (error instanceof ProviderError && error.code === 100) {
+        if (names.length > 1) return (await Promise.all(names.map(name => insights(url, [name])))).flat();
+        result.warnings.push(`ต้นทางไม่รองรับตัวชี้วัด ${names[0]} สำหรับบางโพสต์`);
+      } else partial(error);
+      return [];
+    }
+  };
   try {
     if (platform === "facebook" || platform === "instagram") {
       const graph = `https://graph.facebook.com/${env.REPORT_META_GRAPH_VERSION}`;
-      const profile = await request(`${graph}/${account}`, { fields: platform === "facebook" ? "id,name" : "id,username" });
+      if (platform === "instagram" && !account) {
+        const page = await request(`${graph}/${env.REPORT_FACEBOOK_PAGE_ID}`, { fields: "instagram_business_account" });
+        const discoveredAccount = page.instagram_business_account?.id;
+        if (typeof discoveredAccount !== "string" || !/^[\w-]+$/.test(discoveredAccount)) {
+          throw new ProviderError("error", "ไม่พบบัญชี Instagram Business/Creator ที่เชื่อมกับเพจ Facebook นี้");
+        }
+        account = discoveredAccount;
+        connection.accountId = account;
+        connection.id = `report:instagram:${account}`;
+      }
+      const profile = await request(`${graph}/${account}`, { fields: platform === "facebook" ? "id,name,access_token" : "id,username" });
       if (profile.id !== account) throw classifyProviderError(403, null);
+      // System-user tokens can identify a Page but /posts requires its Page token.
+      // Resolve it server-side for this Page only; never persist or return the token.
+      if (platform === "facebook" && typeof profile.access_token === "string" && profile.access_token) token = profile.access_token;
       connection.label = String(profile.name ?? profile.username ?? labels[platform]);
       connection.status = "connected";
       let after = "";
       for (let page = 0; page < (probe ? 1 : 3); page++) {
-        const fields = platform === "facebook" ? "id,message,created_time,permalink_url,full_picture,shares,comments.limit(0).summary(true)" : "id,caption,timestamp,permalink,media_type,thumbnail_url,like_count,comments_count";
+        const fields = platform === "facebook" ? "id,message,created_time,permalink_url,full_picture,shares,likes.limit(0).summary(true),comments.limit(0).summary(true),attachments{media_type,type}" : "id,caption,timestamp,permalink,media_type,media_product_type,thumbnail_url,like_count,comments_count";
         const data = await request(`${graph}/${account}/${platform === "facebook" ? "posts" : "media"}`, { fields, limit: probe ? "1" : "20", ...(after ? { after } : {}) });
         if (!Array.isArray(data.data)) throw classifyProviderError(500, null);
-        for (const row of data.data as Json[]) {
-          const p = addPublication(row.id, row.created_time ?? row.timestamp, row.message ?? row.caption, row.permalink_url ?? row.permalink, row.media_type === "VIDEO" ? "video" : row.media_type === "IMAGE" ? "image" : "other", null, row.thumbnail_url ?? row.full_picture);
-          if (!p) continue;
-          const metrics = platform === "facebook" ? { comments: number(row.comments?.summary?.total_count), shares: number(row.shares?.count) } : { likes: number(row.like_count), comments: number(row.comments_count) };
-          if (platform === "instagram") {
-            // Metrics vary by media type/permission; a failed insights call must not discard basic counters.
-            try {
-              const insights = await request(`${graph}/${p.providerPostId}/insights`, { metric: "reach,saved,shares,views", period: "lifetime" });
-              const keys: Record<string, MetricKey> = { reach: "reach", saved: "saves", shares: "shares", views: "views" };
-              for (const metric of (insights.data ?? []) as Json[]) if (keys[metric.name]) Object.assign(metrics, { [keys[metric.name]]: number(metric.total_value?.value ?? metric.values?.[0]?.value) });
-            } catch (error) { partial(error); }
+        const consume = async (row: Json) => {
+          const attachment = row.attachments?.data?.[0];
+          const video = row.media_type === "VIDEO" || attachment?.media_type === "video" || String(attachment?.type ?? "").includes("video");
+          const photo = row.media_type === "IMAGE" || row.media_type === "CAROUSEL_ALBUM" || attachment?.media_type === "photo";
+          const p = addPublication(row.id, row.created_time ?? row.timestamp, row.message ?? row.caption, row.permalink_url ?? row.permalink, video ? "video" : photo ? "image" : "other", null, row.thumbnail_url ?? row.full_picture);
+          if (!p) return;
+          const metrics: MetricObservation["metrics"] = platform === "facebook" ? { likes: number(row.likes?.summary?.total_count), comments: number(row.comments?.summary?.total_count), shares: number(row.shares?.count) } : { likes: number(row.like_count), comments: number(row.comments_count) };
+          const keys: Record<string, [MetricKey, number]> = platform === "facebook" ? {
+            post_media_view: ["views", 1], post_total_media_view_unique: ["uniqueViewers", 1],
+            post_video_avg_time_watched: ["averageWatchSeconds", 1000], post_video_view_time: ["watchSeconds", 1000],
+          } : { reach: ["reach", 1], saved: ["saves", 1], shares: ["shares", 1], views: ["views", 1],
+            ig_reels_avg_watch_time: ["averageWatchSeconds", 1000], ig_reels_video_view_total_time: ["watchSeconds", 1000] };
+          const names = platform === "facebook" ? ["post_media_view", "post_total_media_view_unique", ...(video ? ["post_video_avg_time_watched", "post_video_view_time", "post_video_views_organic"] : [])] : ["reach", "saved", "shares", "views", ...(row.media_product_type === "REELS" ? ["ig_reels_avg_watch_time", "ig_reels_video_view_total_time"] : [])];
+          if (!probe) for (const entry of await insights(`${graph}/${p.providerPostId}/insights`, names)) {
+            const value = number(entry.total_value?.value ?? entry.values?.[0]?.value);
+            if (value === null) continue;
+            if (entry.name === "post_video_views_organic") observe(p, { views: value }, "Facebook Graph API — Organic video views (3 วินาทีตามนิยามต้นทาง)", null, "organic");
+            else if (keys[entry.name]) metrics[keys[entry.name][0]] = value / keys[entry.name][1];
           }
           observe(p, metrics, `${labels[platform]} Graph API — ยอดสะสม ณ เวลาดึง`);
-        }
+        };
+        for (let offset = 0; offset < data.data.length; offset += 4) await Promise.all(data.data.slice(offset, offset + 4).map(consume));
         // Never follow provider next URLs: they can carry access tokens or an untrusted host.
         after = typeof data.paging?.cursors?.after === "string" && data.paging?.next ? data.paging.cursors.after : "";
         if (!after) break;

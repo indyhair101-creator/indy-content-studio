@@ -17,8 +17,8 @@ const CALENDAR_STATUS_LABELS: Record<CalendarItemStatus, string> = {
   "in-progress": "กำลังทำ",
   sent: "ส่งแล้ว",
 };
-const platformLabels: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" };
-const platformShortLabels: Record<Platform, string> = { facebook: "FB", instagram: "IG", tiktok: "TIKTOK" };
+const platformLabels: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", salon: "Salon" };
+const platformShortLabels: Record<Platform, string> = { facebook: "FB", instagram: "IG", tiktok: "TIKTOK", salon: "SALON" };
 
 function getCalendarItemStatus(item: ContentItem): CalendarItemStatus {
   if (item.productionStatus === "published" || item.schedules.some((schedule) => Boolean(schedule.manualEvidence))) return "sent";
@@ -78,7 +78,7 @@ export function ContentCalendarWorkspace({ onCreateTask }: { onCreateTask: (date
     try {
       await dashboard.mutate((state) => item.platform
         ? movePlatformSchedule(state, item.contentId, item.platform, date, new Date().toISOString())
-        : moveContentSchedules(state, item.contentId, date, ["facebook", "instagram", "tiktok"], new Date().toISOString()));
+        : moveContentSchedules(state, item.contentId, date, ["facebook", "instagram", "tiktok", "salon"], new Date().toISOString()));
     } catch {
       setMoveError("ย้ายวันไม่สำเร็จ กรุณาตรวจว่าคิวที่ส่ง Make แล้วถูกยกเลิกก่อนหรือยัง");
     } finally {
@@ -202,7 +202,7 @@ export function ContentCalendarWorkspace({ onCreateTask }: { onCreateTask: (date
           <input type="month" aria-label="เดือนปฏิทิน" value={month} disabled={selectionBusy} onChange={(event) => changeCalendarFilter(() => setMonth(event.target.value))} />
           <button type="button" aria-label="เดือนถัดไป" disabled={selectionBusy} onClick={() => changeCalendarFilter(() => setMonth((current) => shiftMonth(current, 1)))}>›</button>
         </div>
-        <label className="calendar-platform-filter"><span>กรองช่องทาง</span><span className="calendar-platform-select"><select aria-label="กรองช่องทาง" value={platform} disabled={selectionBusy} onChange={(event) => changeCalendarFilter(() => setPlatform(event.target.value as CalendarPlatformFilter))}><option value="all">รวมทุก Social</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option></select><svg aria-hidden="true" viewBox="0 0 12 12"><path d="m3 4.5 3 3 3-3" /></svg></span></label>
+<label className="calendar-platform-filter"><span>กรองช่องทาง</span><span className="calendar-platform-select"><select aria-label="กรองช่องทาง" value={platform} disabled={selectionBusy} onChange={(event) => changeCalendarFilter(() => setPlatform(event.target.value as CalendarPlatformFilter))}><option value="all">รวมทุกช่องทาง</option><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="salon">Salon</option></select><svg aria-hidden="true" viewBox="0 0 12 12"><path d="m3 4.5 3 3 3-3" /></svg></span></label>
         <label className="calendar-platform-filter"><span>กรองผู้รับผิดชอบ</span><span className="calendar-platform-select"><select aria-label="กรองผู้รับผิดชอบ" value={owner} disabled={selectionBusy} onChange={(event) => changeCalendarFilter(() => setOwner(event.target.value))}><option value="">ทุกคน</option>{ownerOptions.map((name) => <option key={name} value={name}>{name}</option>)}</select><svg aria-hidden="true" viewBox="0 0 12 12"><path d="m3 4.5 3 3 3-3" /></svg></span></label>
         <button type="button" className="create-task-button" onClick={() => onCreateTask()}>สร้างชิ้นงานใหม่</button>
       </div>
@@ -221,13 +221,14 @@ export function ContentCalendarWorkspace({ onCreateTask }: { onCreateTask: (date
       <small>{selectionBusy ? "กำลังบันทึก…" : `${selectedContentIds.size > 1 ? "คัดลอกสำเนาต้องเลือกครั้งละ 1 รายการ · " : ""}เปลี่ยนสถานะทั้งชิ้นงาน ไม่สั่งโพสต์ผ่าน LINE หรือ Make`}</small>
     </div>}
     <div className="calendar-grid" role="grid" aria-label="ปฏิทินคอนเทนต์">
+      {["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"].map((day) => <div key={day} className="calendar-weekday-heading" role="columnheader">{day}</div>)}
       {view.cells.map((cell) => {
         const scheduledIds = new Set(cell.events.map((event) => event.content.id));
         const workItems = cell.items.filter((item) => !scheduledIds.has(item.id));
         return <div key={cell.date} className={`${cell.inMonth ? "calendar-cell" : "calendar-cell muted"}${dropTargetDate === cell.date ? " calendar-cell-drop-target" : ""}`} aria-label={cell.date} role="gridcell" tabIndex={-1}
           onDragOver={(event) => { if (!event.dataTransfer.types.includes("text/plain") && !draggedItem) return; event.preventDefault(); event.dataTransfer.dropEffect = "move"; setDropTargetDate(cell.date); }}
           onDrop={(event) => dropOnDate(event, cell.date)} onClick={(event) => { if ((event.target as HTMLElement).closest(".calendar-item")) return; onCreateTask(cell.date); }}>
-          <strong>{cell.date.slice(-2)}</strong>
+          <div className="calendar-date-heading"><strong>{cell.date.slice(-2)}</strong><span>{["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"][new Date(`${cell.date}T00:00:00Z`).getUTCDay()]}</span></div>
           {cell.events.map((event) => renderCard(event.content, event))}
           {workItems.map((item) => renderCard(item))}
         </div>;

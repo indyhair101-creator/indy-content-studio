@@ -37,15 +37,17 @@ export function createMediaPreviewHandler({
       if (!asset || asset.remoteStatus !== "ready" || !asset.providerFileId) {
         return Response.json({ error: "not_found" }, { status: 404 });
       }
+      const thumbnail = new URL(request.url).searchParams.get("variant") === "thumbnail";
+      const fileId = thumbnail ? asset.previewProviderFileId ?? asset.providerFileId : asset.providerFileId;
       const signedUrl = createMediaDeliveryUrl({
         baseUrl: new URL(request.url).origin,
         secret: signingSecret,
-        fileId: asset.providerFileId,
-        purpose: "original",
+        fileId,
+        purpose: thumbnail ? "preview" : "original",
         expiresAt: now() + 60,
       });
       const signedRequest = new Request(signedUrl, { headers: request.headers.get("range") ? { Range: request.headers.get("range")! } : undefined });
-      return providerHandler(signedRequest, { params: Promise.resolve({ fileId: asset.providerFileId }) });
+      return providerHandler(signedRequest, { params: Promise.resolve({ fileId }) });
     } catch {
       return Response.json({ error: "media_unavailable" }, { status: 503 });
     }

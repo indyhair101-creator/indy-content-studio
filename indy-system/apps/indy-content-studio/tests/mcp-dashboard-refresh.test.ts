@@ -4,7 +4,7 @@ import { createEmptyDashboardState } from "../features/domain/create-empty-state
 
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 describe("dashboard synchronization with MCP changes", () => {
-  it("refreshes remote changes on focus and a timer, and removes polling on unsubscribe", async () => {
+  it("does not poll or refresh on focus; a manual read gets remote changes", async () => {
     vi.useFakeTimers();
     const state = createEmptyDashboardState();
     let version = 1;
@@ -15,13 +15,11 @@ describe("dashboard synchronization with MCP changes", () => {
     const listener = vi.fn(); const stop = repo.subscribe(listener);
     state.notificationReadIds.push("changed-through-mcp"); version = 2;
     window.dispatchEvent(new Event("focus"));
-    await vi.waitFor(() => expect(listener).toHaveBeenCalled());
-    expect(listener.mock.calls.at(-1)?.[0].notificationReadIds).toEqual(["changed-through-mcp"]);
-    listener.mockClear(); version = 3;
     await vi.advanceTimersByTimeAsync(15000);
-    expect(listener).toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(listener).not.toHaveBeenCalled();
+    expect((await repo.read()).notificationReadIds).toEqual(["changed-through-mcp"]);
     stop();
-    expect(vi.getTimerCount()).toBe(0);
     fetch.mockClear(); window.dispatchEvent(new Event("focus"));
     await vi.advanceTimersByTimeAsync(15000);
     expect(fetch).not.toHaveBeenCalled();
@@ -63,8 +61,7 @@ describe("dashboard synchronization with MCP changes", () => {
       resolveRead(Response.json({ state: initial, version: 1 }));
       await expect(staleRead).rejects.toThrow("ข้อมูลล่าสุด");
       expect(listener).not.toHaveBeenCalled();
-      window.dispatchEvent(new Event("focus"));
-      await vi.waitFor(() => expect(listener).toHaveBeenLastCalledWith(persisted));
+      expect(await repo.read()).toEqual(persisted);
     } finally { stop(); }
   });
 });

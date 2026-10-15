@@ -11,6 +11,17 @@ const state = createUploadedMedia(createEmptyDashboardState(), {
 state.media[0] = { ...state.media[0], remoteStatus: "ready", providerFileId: FILE_ID, previewProviderFileId: FILE_ID };
 
 describe("authenticated remote media preview", () => {
+  it("serves the video poster for thumbnail requests instead of downloading the clip", async () => {
+    const { createMediaPreviewHandler } = await import("../features/media/server/media-preview-handler");
+    const videoState = structuredClone(state);
+    videoState.media[0].mimeType = "video/mp4";
+    videoState.media[0].providerFileId = "blob:media/asset-remote/123e4567-e89b-12d3-a456-426614174000.mp4";
+    const streamBlob = vi.fn(async () => new Response("poster"));
+    const handler = createMediaPreviewHandler({ authorize: async () => true, loadState: async () => videoState, getClient: () => null, streamBlob, signingSecret: "test-preview-secret" });
+    const response = await handler(new Request("https://studio.example/api/media/preview/asset-remote?variant=thumbnail"), { params: Promise.resolve({ assetId: "asset-remote" }) });
+    expect(response.status).toBe(200);
+    expect(streamBlob).toHaveBeenCalledWith({ pathname: "media/asset-remote/123e4567-e89b-12d3-a456-426614174000.jpg", range: undefined });
+  });
   it("streams a stored private Blob with range support, without requiring a local browser copy", async () => {
     const { createMediaPreviewHandler } = await import("../features/media/server/media-preview-handler");
     const streamBlob = vi.fn(async () => new Response("bytes", { status: 206, headers: { "Content-Type": "image/jpeg", "Content-Range": "bytes 0-4/5" } }));

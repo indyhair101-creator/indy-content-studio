@@ -9,7 +9,7 @@ import { selectActionPlan, selectActionPlanEntries, type ActionPlanEntry } from 
 
 const WEEKDAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัส", "ศุกร์", "เสาร์", "อาทิตย์"];
 const STATUS_LABELS: Record<StepStatus, string> = { todo: "รอทำ", doing: "กำลังทำ", done: "เสร็จแล้ว" };
-const PLATFORM_LABELS: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" };
+const PLATFORM_LABELS: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", salon: "Salon" };
 
 type ActionStep = ActionPlanEntry;
 type ActionDay = ReturnType<typeof selectActionPlan>["days"][number];

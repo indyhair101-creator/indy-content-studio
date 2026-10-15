@@ -149,7 +149,7 @@ export class DashboardMcpService {
       const content = activeContent(state, args.content_id);
       requireEditable(content, state, args.platform);
       const format = state.formats.find((f) => f.id === content.formatId);
-      if (!format?.allowedPlatforms.includes(args.platform)) throw new DashboardToolError("รูปแบบนี้ไม่รองรับแพลตฟอร์มที่เลือก");
+      if (args.platform !== "salon" && !format?.allowedPlatforms.includes(args.platform)) throw new DashboardToolError("รูปแบบนี้ไม่รองรับแพลตฟอร์มที่เลือก");
       let schedule = content.schedules.find((s) => s.platform === args.platform);
       if (!schedule) {
         schedule = { platform: args.platform, enabled: false, publishAt: null, latestAttemptId: null, manualEvidence: null };

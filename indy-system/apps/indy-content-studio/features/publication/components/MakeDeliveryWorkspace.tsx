@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useDashboardData } from "../../data/DashboardDataProvider";
 import type { Platform } from "../../domain/types";
 
-const platformLabels: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok" };
+const platformLabels: Record<Platform, string> = { facebook: "Facebook", instagram: "Instagram", tiktok: "TikTok", salon: "Salon" };
 const statusLabels: Record<string, string> = { "local-plan": "รอส่ง Make", submitting: "กำลังส่ง", queued: "ตั้งเวลาแล้ว", publishing: "กำลังโพสต์", published: "โพสต์แล้ว", failed: "ส่งไม่สำเร็จ", cancelled: "ยกเลิกคิวแล้ว" };
 
 export function MakeDeliveryWorkspace() {

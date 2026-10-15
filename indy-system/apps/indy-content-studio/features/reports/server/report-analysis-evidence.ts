@@ -31,7 +31,7 @@ export function buildReportAnalysisEvidence(state: DashboardState, request: Anal
     });
     const observations = records.map((record) => record.observation);
     for (const { observation, post, content } of records.slice(0, LIMIT)) {
-      evidence.push({ id: `observation:${observation.id}`, contentId: content.id, entityId: content.id, label: `${content.title.slice(0, 220)} · ${post.platform} · ${observation.sourceLabel.slice(0, 80)}`, data: {
+      evidence.push({ id: `observation:${observation.id}`, contentId: post.contentId, entityId: content.id, label: `${content.title.slice(0, 220)} · ${post.platform} · ${observation.sourceLabel.slice(0, 80)}`, data: {
         post: { id: post.id, platform: post.platform, accountId: post.accountId, publishedAt: post.publishedAt, mediaKind: post.mediaKind, durationSeconds: post.durationSeconds },
         observation: { ...observation, retention: observation.retention?.slice(0, 100) ?? null },
         content: { title: content.title.slice(0, 300), objective: content.objective, categoryId: content.categoryId, formatId: content.formatId, caption: content.caption.slice(0, 3500), scriptAndNotes: content.notes.slice(0, 3500), media: state.media.filter((media) => content.assetIds.includes(media.id) && !media.deletedAt).slice(0, 4).map((media) => ({ name: media.name.slice(0, 200), mimeType: media.mimeType })) },

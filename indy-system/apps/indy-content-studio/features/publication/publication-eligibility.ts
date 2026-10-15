@@ -90,6 +90,7 @@ export function buildPublicationIdempotencyKey(content: ContentItem, platform: P
 }
 
 export function getPublicationEligibility(state: DashboardState, contentId: string, platform: Platform, now: string): PublicationEligibility {
+  if (platform === "salon") return { eligible: false, reasons: ["Salon ใช้สำหรับปฏิทินและ Action Plan เท่านั้น"] };
   const content = state.contents.find((item) => item.id === contentId && !item.deletedAt);
   if (!content) return { eligible: false, reasons: ["ไม่พบคอนเทนต์"] };
   const reasons: string[] = [];

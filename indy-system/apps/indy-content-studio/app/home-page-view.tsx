@@ -32,6 +32,7 @@ import { ReportActions, SavedReportsPanel } from "../features/reports/components
 import { ReportConnectionsPanel } from "../features/reports/components/ReportConnectionsPanel";
 import { ReportImportPanel } from "../features/reports/components/ReportImportPanel";
 import { ReportAnalysisPanel } from "../features/reports/components/ReportAnalysisPanel";
+import { ReportRecoveryWorkspace } from "../features/reports/components/ReportRecoveryWorkspace";
 
 type LineConnectionView = {
   view: "loading" | "authenticated" | "unauthenticated" | "error";
@@ -50,6 +51,7 @@ type LineDeliveryResult = {
 
 function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore }) {
   const dashboard = useDashboardData();
+  const [refreshing, setRefreshing] = useState(false);
   const [draftTasks, setDraftTasks] = useState<DashboardTask[]>([]);
   const persistedTasks = useMemo(() => {
     if (!dashboard.state) return [];
@@ -251,6 +253,14 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
 
   return <AppShell activeItem={activeWorkspace} onNavigate={setActiveWorkspace}>
     <main>
+      <section className="report-panel" aria-label="การอัปเดตข้อมูลระบบ">
+        <button type="button" disabled={refreshing || dashboard.status === "loading"} onClick={() => {
+          setRefreshing(true);
+          void dashboard.reload().catch(() => undefined).finally(() => setRefreshing(false));
+        }}>{refreshing ? "กำลังโหลด…" : "โหลดข้อมูลงานล่าสุด"}</button>
+        <small>โหมดประหยัด: ไม่โหลดซ้ำอัตโนมัติ กดเพื่อรับการแก้ไขจากคนอื่น · การบันทึกงานของคุณยังอัปเดตทันที</small>
+        {dashboard.error && <p role="alert">โหลดฐานข้อมูลงานไม่สำเร็จ ข้อมูลเดิมไม่ได้ถูกลบ — ยังเปิด Report ข้อมูลเชิงลึกและกดดึงจากโซเชียลได้</p>}
+      </section>
       {activeWorkspace === "overview" && <>
         <TodayOverview tasks={todayTasks} state={todayState} onOpenTask={(task) => { setContinuationNotice(null); workspace.openTask(task.id); }} onResumeLatest={workspace.resumeLatest} onRetry={() => setTodayState("ready")} />
         <div className="home-workflow-actions">
@@ -314,7 +324,7 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
       {activeWorkspace === "production-board" && <ProductionBoardWorkspace />}
       {activeWorkspace === "settings" && <SettingsWorkspace />}
       {activeWorkspace === "media-library" && <MediaLibraryWorkspace />}
-      {activeWorkspace === "references" && <ReferencesWorkspace />}
+      {activeWorkspace === "references" && <ReferencesWorkspace blobStore={mediaBlobStore} />}
       {activeWorkspace === "caption-templates" && <CaptionTemplatesWorkspace />}
       {activeWorkspace === "calendar" && <ContentCalendarWorkspace onCreateTask={(date) => openCreateContent(date)} />}
       {activeWorkspace === "action-plan" && <ActionPlanWorkspace />}
@@ -331,15 +341,15 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
         renderAnalysis={(filters) => <ReportAnalysisPanel kind="team" filters={filters} onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }} />}
         renderSaved={() => <SavedReportsPanel kind="team" />}
       />}
-      {activeWorkspace === "content-report" && <>
+      {activeWorkspace === "content-report" && (!dashboard.state ? <ReportRecoveryWorkspace /> : <>
         <InsightsReportWorkspace
           onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }}
           renderActions={(filters) => <ReportActions kind="content" filters={filters} />}
           renderAnalysis={(filters) => <ReportAnalysisPanel kind="content" filters={filters} onOpenContent={(id) => { workspace.openTask(id); setActiveWorkspace("overview"); setFullEditorOpen(true); }} />}
           renderSaved={() => <SavedReportsPanel kind="content" />}
-          renderSources={(filters) => <details className="report-panel"><summary>เชื่อมต่อและนำเข้าข้อมูล</summary><ReportConnectionsPanel range={filters.range} /><ReportImportPanel /></details>}
+          renderSources={(filters) => <><ReportConnectionsPanel range={filters.range} /><details className="report-panel"><summary>นำเข้าและจับคู่กับปฏิทิน (ไม่จำเป็นสำหรับดูตัวเลข)</summary><ReportImportPanel /></details></>}
         />
-      </>}
+      </>)}
       <CreateContentModal open={workspace.isCreateOpen} onClose={() => { workspace.setCreateOpen(false); setCreateInitialDate(""); }} onCreate={createTask} categories={dashboard.state?.categories.map((category) => category.name) ?? []} formats={dashboard.state?.formats.map((format) => format.name) ?? []} ownerOptions={dashboard.state?.ownerOptions ?? []} initialDate={createInitialDate} allowedPlatformsByFormat={Object.fromEntries((dashboard.state?.formats ?? []).map((format) => [format.name, format.allowedPlatforms]))} />
     </main>
   </AppShell>;

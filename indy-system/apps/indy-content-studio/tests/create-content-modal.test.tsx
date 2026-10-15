@@ -47,6 +47,7 @@ describe("CreateContentModal", () => {
         facebook: { enabled: false, date: "", time: "09:00" },
         instagram: { enabled: false, date: "", time: "09:00" },
         tiktok: { enabled: false, date: "", time: "09:00" },
+        salon: { enabled: false, date: "", time: "09:00" },
       },
     });
   });

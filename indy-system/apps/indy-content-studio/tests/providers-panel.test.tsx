@@ -12,7 +12,7 @@ describe("report connection panel", () => {
     mock.mutate.mockImplementation(async (mutate) => { next = mutate(mock.state); });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ connections: [], publications: [{ id: "facebook:p:1", contentId: null, title: "New" }], observations: [{ id: "new-snapshot" }], warnings: [], truncated: false })));
     render(<ReportConnectionsPanel />);
-    fireEvent.click(screen.getByRole("button", { name: "อัปเดตข้อมูลและบันทึก snapshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "ดึงข้อมูลล่าสุดจากโซเชียล" }));
     await waitFor(() => expect(mock.mutate).toHaveBeenCalled());
     expect(next?.reporting?.publications[0]).toMatchObject({ contentId: "content-existing", title: "New" });
     expect(next?.reporting?.observations.map((o) => o.id)).toEqual(["old-snapshot", "new-snapshot"]);
@@ -22,7 +22,7 @@ describe("report connection panel", () => {
     mock.mutate.mockRejectedValue(new Error("บันทึกขัดข้อง"));
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ connections: [], publications: [], observations: [], warnings: [], truncated: false })));
     render(<ReportConnectionsPanel />);
-    fireEvent.click(screen.getByRole("button", { name: "อัปเดตข้อมูลและบันทึก snapshot" }));
+    fireEvent.click(screen.getByRole("button", { name: "ดึงข้อมูลล่าสุดจากโซเชียล" }));
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("บันทึกขัดข้อง"));
   });
 });

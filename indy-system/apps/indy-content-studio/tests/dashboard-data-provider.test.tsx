@@ -130,25 +130,29 @@ describe("DashboardDataProvider", () => {
     expect(title).toHaveValue("ยังไม่ได้บันทึก");
   });
 
-  it("refreshes every 15 seconds only while visible and on focus", async () => {
+  it("loads once and only reloads explicitly, never on a timer or window focus", async () => {
     vi.useFakeTimers();
     const repository = new MemoryDashboardRepository();
     const read = vi.spyOn(repository, "read");
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
-    const view = render(<DashboardDataProvider repository={repository}><span>workspace</span></DashboardDataProvider>);
+    let data!: DashboardDataValue;
+    function Capture() { data = useDashboardData(); return null; }
+    const view = render(<DashboardDataProvider repository={repository}><Capture /></DashboardDataProvider>);
     await act(async () => { await Promise.resolve(); });
     expect(read).toHaveBeenCalledTimes(1);
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(1);
     visibility.mockReturnValue("hidden");
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
-    expect(read).toHaveBeenCalledTimes(2);
+    expect(read).toHaveBeenCalledTimes(1);
     visibility.mockReturnValue("visible");
     await act(async () => { window.dispatchEvent(new Event("focus")); });
-    expect(read).toHaveBeenCalledTimes(3);
+    expect(read).toHaveBeenCalledTimes(1);
+    await act(async () => { await data.reload(); });
+    expect(read).toHaveBeenCalledTimes(2);
     view.unmount();
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
-    expect(read).toHaveBeenCalledTimes(3);
+    expect(read).toHaveBeenCalledTimes(2);
   });
 
   it("loads, persists a mutation, and serializes rapid mutations", async () => {

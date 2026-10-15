@@ -51,11 +51,27 @@ describe("insight observations", () => {
     expect(selectInsightPublications(state, filters)[0].metrics.views).toBe(500);
     expect(selectInsightPublications(state, { ...filters, dateBasis: "activity" })[0].metrics.views).toBe(100);
   });
-  it("includes old content for activity but excludes unmatched posts and respects duration", () => {
+  it("includes old content for activity and respects duration", () => {
     const state = stateWith([observation()], [publication({ publishedAt: "2025-01-01" }), publication({ id: "unmatched", contentId: null })]);
-    expect(selectInsightPublications(state, filters)).toHaveLength(0);
+    expect(selectInsightPublications(state, filters)).toHaveLength(1);
     expect(selectInsightPublications(state, { ...filters, dateBasis: "activity" })).toHaveLength(1);
     expect(selectInsightPublications(state, { ...filters, dateBasis: "activity", minDuration: 90 })).toHaveLength(0);
+  });
+  it("does not replace unsegmented totals with an organic-only subset in the default view", () => {
+    const selected = selectObservations([observation({ scope: "lifetime", period: null, traffic: "organic", metrics: { views: 40 } }), observation({ id: "total", scope: "lifetime", period: null, traffic: "unknown", metrics: { views: 100, likes: 2 } })], filters);
+    expect(observationMetric(selected, "views")).toBe(100);
+    expect(observationMetric(selected, "likes")).toBe(2);
+  });
+  it("shows real unlinked posts without creating calendar tasks or guessing ownership", () => {
+    const state = stateWith([observation({ scope: "lifetime", period: null, metrics: { views: 1500 } })], [publication({ contentId: null })]);
+    const rows = selectInsightPublications(state, filters);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].metrics.views).toBe(1500);
+    expect(rows[0].content.title).toBe("Video");
+    expect(rows[0].content.owner).toBe("");
+    expect(state.contents).toHaveLength(1);
+    expect(selectInsightPublications(state, { ...filters, owner: "owner" })).toEqual([]);
+    expect(selectInsightPublications(state, { ...filters, objective: "awareness" })).toEqual([]);
   });
   it("groups two platform posts into one content and does not sum reach or mixed-platform views", () => {
     const state = stateWith([observation(), observation({ id: "o2", publicationId: "p2" })], [publication(), publication({ id: "p2", platform: "facebook" })]);
@@ -64,6 +80,16 @@ describe("insight observations", () => {
     expect(aggregateInsightMetric(rows, "reach")).toBeNull();
     expect(aggregateInsightMetric(rows, "views")).toBeNull();
     expect(comparisonCompatible(rows)).toBe(false);
+  });
+  it("adds same-source Zernio counts with different upstream freshness without mixing definitions", () => {
+    const sourceLabel = (time: string) => `Zernio / tiktok — ยอดสะสม; ต้นทางอัปเดต ${time}; ช่องทางยอดไม่ยืนยัน`;
+    const state = stateWith([observation({ sourceLabel: sourceLabel("2026-10-09T01:00:00.000Z"), metrics: { views: 100 } }), observation({ id: "o2", publicationId: "p2", sourceLabel: sourceLabel("2026-10-09T02:00:00.000Z"), metrics: { views: 200 } })], [publication({ platform: "tiktok" }), publication({ id: "p2", platform: "tiktok" })]);
+    const rows = selectInsightPublications(state, { ...filters, dateBasis: "activity" });
+    rows.forEach(row => row.observations.forEach(item => { item.source = "api"; }));
+    expect(aggregateInsightMetric(rows, "views")).toBe(300);
+    expect(rows[0].observations[0].sourceLabel).toContain("01:00:00");
+    rows[1].observations[0].sourceLabel += "; different definition";
+    expect(aggregateInsightMetric(rows, "views")).toBeNull();
   });
   it("weights averages using documented weights only and retains separate completion", () => {
     const state = stateWith([observation({ metrics: { averageWatchSeconds: 10, averageWatchPercent: 20, completionRate: 5 }, averageWatchWeight: 10 }), observation({ id: "o2", publicationId: "p2", metrics: { averageWatchSeconds: 30, averageWatchPercent: 50, completionRate: 10 }, averageWatchWeight: 30 })], [publication(), publication({ id: "p2" })]);

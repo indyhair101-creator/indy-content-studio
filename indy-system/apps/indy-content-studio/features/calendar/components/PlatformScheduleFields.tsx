@@ -7,6 +7,7 @@ const platforms: Array<{ value: Platform; label: string }> = [
   { value: "facebook", label: "Facebook" },
   { value: "instagram", label: "Instagram" },
   { value: "tiktok", label: "TikTok" },
+  { value: "salon", label: "Salon" },
 ];
 
 function defaultSchedule(platform: Platform): PlatformSchedule {
@@ -42,6 +43,7 @@ export function PlatformScheduleFields({ schedules, allowedPlatforms, defaultDat
       return <div className="platform-schedule-row" key={value}>
         <label className="platform-schedule-toggle"><span className="platform-schedule-name">{label}</span><input type="checkbox" aria-label={`เปิด ${label}`} checked={schedule.enabled} disabled={disabled || !supported} onChange={(event) => update(value, { enabled: event.target.checked, publishAt: event.target.checked && !schedule.publishAt && defaultDate ? createBangkokScheduleTimestamp(defaultDate, "09:00") : schedule.publishAt })} /></label>
         {!supported && <span className="field-hint">รูปแบบนี้ไม่รองรับช่องทาง {label}</span>}
+        {value === "salon" && <span className="field-hint">วางแผนในปฏิทินและ Action Plan เท่านั้น</span>}
         <label>วันลง {label}<input type="date" aria-label={`วันลง ${label}`} value={formatted.date} disabled={disabled || !schedule.enabled || !supported} onChange={(event) => updateTime(value, event.target.value, formatted.time)} /></label>
         <label>เวลาลง {label}<input type="time" aria-label={`เวลาลง ${label}`} value={formatted.time} disabled={disabled || !schedule.enabled || !supported} onChange={(event) => updateTime(value, formatted.date, event.target.value)} /></label>
       </div>;

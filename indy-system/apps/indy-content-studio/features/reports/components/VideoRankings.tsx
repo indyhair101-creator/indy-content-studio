@@ -31,7 +31,7 @@ export function VideoRankings({ rows, metric, onOpenContent }: { rows: InsightPu
             {cohort.sample < 3 ? <p>ขนาดตัวอย่างไม่พอ แสดงข้อมูลรายโพสต์ได้ในตารางผลคอนเทนต์</p> : <>
               {panel.below && <p>{cohort.average === null ? "ไม่มีฐานที่ใช้คำนวณค่าเฉลี่ยกลุ่มได้" : `${panel.metric === "averageWatchSeconds" ? "ค่าเฉลี่ยถ่วงด้วยฐานรับชม" : "ค่าเฉลี่ยต่อโพสต์"} ${valueLabel(cohort.average)} ${METRIC_DEFINITIONS[panel.metric].unit}`}</p>}
               {panel.below && cohort.average !== null && !entries.length && <p>ไม่มีโพสต์ต่ำกว่าค่าเฉลี่ยกลุ่มนี้</p>}
-              {!!entries.length && <table className="report-table"><thead><tr><th>{panel.below ? "เทียบค่าเฉลี่ย" : "อันดับในกลุ่ม"}</th><th>คอนเทนต์</th><th>{METRIC_DEFINITIONS[panel.metric].label}</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.row.publication.id}><td>{panel.below ? "ต่ำกว่า" : entry.rank}</td><td>{onOpenContent ? <button type="button" onClick={() => onOpenContent(entry.row.content.id)}>{entry.row.content.title}</button> : entry.row.content.title}</td><td>{valueLabel(entry.value)}</td></tr>)}</tbody></table>}
+              {!!entries.length && <table className="report-table"><thead><tr><th>{panel.below ? "เทียบค่าเฉลี่ย" : "อันดับในกลุ่ม"}</th><th>คอนเทนต์</th><th>{METRIC_DEFINITIONS[panel.metric].label}</th></tr></thead><tbody>{entries.map(entry => <tr key={entry.row.publication.id}><td>{panel.below ? "ต่ำกว่า" : entry.rank}</td><td>{onOpenContent && entry.row.publication.contentId ? <button type="button" onClick={() => onOpenContent(entry.row.content.id)}>{entry.row.content.title}</button> : entry.row.content.title}</td><td>{valueLabel(entry.value)}</td></tr>)}</tbody></table>}
             </>}
           </details>;
         })}
