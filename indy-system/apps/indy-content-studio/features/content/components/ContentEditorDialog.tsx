@@ -181,7 +181,7 @@ export function ContentEditorDialog({ mode, contentId, open, onClose }: {
         <button className="drawer-close-button content-editor-dialog-close" type="button" onClick={onClose} aria-label="ปิดตัวแก้ไข">×</button>
         <div className="content-editor-dialog">
         <div className="workspace-heading-row">
-          <div><p className="eyebrow">CONTENT EDITOR</p><h2 id="full-editor-heading">{mode === "create" ? "สร้างคอนเทนต์" : "แก้ไขคอนเทนต์"}</h2></div>
+          <div><h2 id="full-editor-heading">{mode === "create" ? "สร้างคอนเทนต์" : "แก้ไขคอนเทนต์"}</h2></div>
         </div>
         {error && <p role="alert">{error}</p>}
         {notice && <p role="status">{notice}</p>}

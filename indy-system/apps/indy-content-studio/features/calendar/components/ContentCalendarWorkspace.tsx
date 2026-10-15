@@ -195,7 +195,7 @@ export function ContentCalendarWorkspace({ onCreateTask }: { onCreateTask: (date
 
   return <section className="calendar-workspace" aria-labelledby="calendar-heading">
     <div className="workspace-heading-row">
-      <div><p className="eyebrow">INDY / CALENDAR</p><h1 id="calendar-heading">ปฏิทินคอนเทนต์</h1></div>
+      <div><h1 id="calendar-heading">ปฏิทินคอนเทนต์</h1></div>
       <div className="calendar-header-actions">
         <div className="calendar-month-navigation" aria-label="เลื่อนเดือนปฏิทิน">
           <button type="button" aria-label="เดือนก่อนหน้า" disabled={selectionBusy} onClick={() => changeCalendarFilter(() => setMonth((current) => shiftMonth(current, -1)))}>‹</button>

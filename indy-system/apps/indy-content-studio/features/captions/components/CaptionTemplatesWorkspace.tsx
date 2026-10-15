@@ -92,7 +92,7 @@ export function CaptionTemplatesWorkspace() {
   const templates = dashboard.state.captionTemplates.filter((template) => !template.deletedAt);
   const contents = dashboard.state.contents.filter((content) => !content.deletedAt);
   return <section className="workspace-surface" aria-labelledby="templates-heading">
-    <div className="workspace-heading-row"><div><p className="eyebrow">INDY / CAPTIONS</p><h1 id="templates-heading">แม่แบบแคปชั่น</h1></div><button type="button" onClick={() => { setError(null); setCreateOpen(true); }}>เพิ่มแม่แบบ</button></div>
+    <div className="workspace-heading-row"><div><h1 id="templates-heading">แม่แบบแคปชั่น</h1></div><button type="button" onClick={() => { setError(null); setCreateOpen(true); }}>เพิ่มแม่แบบ</button></div>
     {(error || dashboard.error) && <p role="alert" className="settings-notice error">{error ?? dashboard.error?.message}</p>}
     {templates.length === 0 ? <p className="overview-state">ยังไม่มีแม่แบบแคปชั่น</p> : <div className="template-grid">{templates.map((template) => {
       const version = activeVersion(template);

@@ -28,6 +28,8 @@ export interface DashboardTask {
   workflowStage?: string;
   lastWorkedAt?: string;
   isComplete?: boolean;
+  /** Set by selectTodayTasks when the work was due before today and is still open. */
+  isOverdue?: boolean;
   category?: string;
   format?: string;
   owner?: string;
@@ -208,11 +210,33 @@ const priorityOrder: Record<TaskPriority, number> = {
   low: 3,
 };
 
-/** Returns a new list so dashboard callers retain their original task order. */
+/** Returns a new list so dashboard callers retain their original task order. Overdue work leads. */
 export function sortTasksForToday(tasks: DashboardTask[]): DashboardTask[] {
   return [...tasks].sort((left, right) => {
+    const overdueDifference = Number(Boolean(right.isOverdue)) - Number(Boolean(left.isOverdue));
     const priorityDifference = priorityOrder[left.priority] - priorityOrder[right.priority];
 
-    return priorityDifference || left.scheduledTime.localeCompare(right.scheduledTime);
+    return overdueDifference || priorityDifference || left.scheduledTime.localeCompare(right.scheduledTime);
+  });
+}
+
+const isoDate = /^\d{4}-\d{2}-\d{2}/;
+
+/** Dates on which unfinished work is due: open steps, the calendar date, and enabled publish slots. */
+function dueDates(task: DashboardTask): string[] {
+  const dates: string[] = [];
+  for (const step of task.processSteps ?? []) if (step.status !== "done" && step.scheduledDate) dates.push(step.scheduledDate.slice(0, 10));
+  if (isoDate.test(task.scheduledTime)) dates.push(task.scheduledTime.slice(0, 10));
+  for (const schedule of Object.values(task.platformSchedules ?? {})) if (schedule?.enabled && isoDate.test(schedule.date)) dates.push(schedule.date.slice(0, 10));
+  return dates;
+}
+
+/** Unfinished work due on `today` (YYYY-MM-DD, Bangkok) plus anything still open from earlier days. */
+export function selectTodayTasks(tasks: DashboardTask[], today: string): DashboardTask[] {
+  return tasks.flatMap((task) => {
+    if (task.isComplete) return [];
+    const dates = dueDates(task);
+    if (!dates.some((date) => date <= today)) return [];
+    return [{ ...task, isOverdue: !dates.includes(today) }];
   });
 }

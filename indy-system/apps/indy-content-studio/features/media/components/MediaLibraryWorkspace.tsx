@@ -184,7 +184,7 @@ export function MediaLibraryWorkspace({ blobStore }: { blobStore?: MediaBlobStor
 
   return <section className="media-library-workspace" aria-labelledby="media-heading">
     <div className="workspace-heading-row">
-      <div><p className="eyebrow">INDY / MEDIA</p><h1 id="media-heading">คลังสื่อ</h1><p>เก็บไฟล์ต้นฉบับและลิงก์อ้างอิงไว้ที่เดียว · อัปโหลดได้ไม่เกิน 1 GB ต่อไฟล์</p></div>
+      <div><h1 id="media-heading">คลังสื่อ</h1><p>เก็บไฟล์ต้นฉบับและลิงก์อ้างอิงไว้ที่เดียว · อัปโหลดได้ไม่เกิน 1 GB ต่อไฟล์</p></div>
       <div className="media-actions">
         <label className="media-upload-button">เลือกไฟล์สื่อ<input type="file" aria-label="เลือกไฟล์สื่อ" accept="image/*,video/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); event.currentTarget.value = ""; }} /></label>
         <button type="button" onClick={() => setLinkOpen(true)}>เพิ่มลิงก์ภายนอก</button>

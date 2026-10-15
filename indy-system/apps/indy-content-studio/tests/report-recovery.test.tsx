@@ -26,7 +26,8 @@ describe("insights during database outage", () => {
   it("can manually fetch and graph real metrics without writing the unavailable work database, then restore them locally", async () => {
     const { repository, write, fetcher } = setup();
     const view = render(<HomePage repository={repository} />);
-    fireEvent.click(screen.getByRole("button", { name: "Report ข้อมูลเชิงลึก" }));
+    fireEvent.click(screen.getByRole("button", { name: "รายงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "ข้อมูลเชิงลึก" }));
     const sync = await screen.findByRole("button", { name: "ดึงข้อมูลล่าสุดจากโซเชียล" });
     await waitFor(() => expect(sync).toBeEnabled());
     expect(fetcher.mock.calls.filter(([url]) => url === "/api/reports/sync")).toHaveLength(0);
@@ -39,7 +40,8 @@ describe("insights during database outage", () => {
     expect(screen.queryByText("นำเข้าและจับคู่กับปฏิทิน (ไม่จำเป็นสำหรับดูตัวเลข)")).not.toBeInTheDocument();
     view.unmount();
     render(<HomePage repository={repository} />);
-    fireEvent.click(screen.getByRole("button", { name: "Report ข้อมูลเชิงลึก" }));
+    fireEvent.click(screen.getByRole("button", { name: "รายงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "ข้อมูลเชิงลึก" }));
     expect(await screen.findByRole("region", { name: "สรุป Facebook" })).toHaveTextContent("1,234");
     expect(fetcher.mock.calls.filter(([url]) => url === "/api/reports/sync")).toHaveLength(1);
   });
@@ -48,7 +50,8 @@ describe("insights during database outage", () => {
     const { repository, write } = setup();
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota"); });
     render(<HomePage repository={repository} />);
-    fireEvent.click(screen.getByRole("button", { name: "Report ข้อมูลเชิงลึก" }));
+    fireEvent.click(screen.getByRole("button", { name: "รายงาน" }));
+    fireEvent.click(screen.getByRole("button", { name: "ข้อมูลเชิงลึก" }));
     const sync = await screen.findByRole("button", { name: "ดึงข้อมูลล่าสุดจากโซเชียล" });
     await waitFor(() => expect(sync).toBeEnabled());
     fireEvent.click(sync);

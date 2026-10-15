@@ -178,7 +178,7 @@ export function CorrectionsWorkspace({ onOpenContent }: { onOpenContent?: (conte
   }
 
   return <section className="corrections-workspace" aria-labelledby="corrections-heading">
-    <div className="workspace-heading-row"><div><p className="eyebrow">INDY / LINE REVIEW</p><h1 id="corrections-heading">งานที่ต้องแก้</h1><p>ตอบ LINE ว่า “ผ่าน” เพื่ออนุมัติและส่งเข้าคิว Make หรือ “ไม่ผ่าน” เพื่อส่งกลับมาแก้ หากมีรายละเอียด ให้เว้นวรรคหรือขึ้นบรรทัดใหม่แล้วพิมพ์ต่อในข้อความเดียวกัน คำตอบใช้กับงานล่าสุดที่ส่งให้ตรวจเท่านั้น</p><p>ระบบอัปเดตอัตโนมัติทุก 15 วินาทีขณะเปิดหน้านี้</p></div></div>
+    <div className="workspace-heading-row"><div><h1 id="corrections-heading">งานที่ต้องแก้</h1><p>ตอบ LINE ว่า “ผ่าน” เพื่ออนุมัติและส่งเข้าคิว Make หรือ “ไม่ผ่าน” เพื่อส่งกลับมาแก้ หากมีรายละเอียด ให้เว้นวรรคหรือขึ้นบรรทัดใหม่แล้วพิมพ์ต่อในข้อความเดียวกัน คำตอบใช้กับงานล่าสุดที่ส่งให้ตรวจเท่านั้น</p><p>ระบบอัปเดตอัตโนมัติทุก 15 วินาทีขณะเปิดหน้านี้</p></div></div>
     {error && <p role="alert">{error}</p>}{(feedbackError || dashboard.error) && <p role="alert">{feedbackError ?? dashboard.error?.message}</p>}{notice && <p role="status">{notice}</p>}
     <section className="settings-panel" aria-labelledby="line-review-heading">
       <h2 id="line-review-heading">เชื่อมต่อและส่งงานตรวจผ่าน LINE</h2>

@@ -7,7 +7,10 @@ import { CreateContentModal, type CreateContentInput } from "../features/dashboa
 import { TaskDetailDrawer } from "../features/dashboard/components/TaskDetailDrawer";
 import { LineSendConfirmation } from "../features/dashboard/components/LineSendConfirmation";
 import { LineSendComposer, type LineSendDraft } from "../features/dashboard/components/LineSendComposer";
-import { dashboardTaskFromContent, dashboardTaskToContent, dashboardTaskToMedia, type DashboardTask } from "../features/dashboard/dashboard-model";
+import { dashboardTaskFromContent, dashboardTaskToContent, dashboardTaskToMedia, selectTodayTasks, type DashboardTask } from "../features/dashboard/dashboard-model";
+import { bangkokDate } from "../features/reports/report-dates";
+import { moveContentToStatus } from "../features/production/production-board-model";
+import { setProcessStepStatus } from "../features/action-plan/action-plan-commands";
 import { useDashboardWorkspace } from "../features/dashboard/useDashboardWorkspace";
 import { DashboardDataProvider, useDashboardData } from "../features/data/DashboardDataProvider";
 import { upsertContent } from "../features/data/dashboard-commands";
@@ -64,7 +67,11 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
     return [...persistedTasks, ...draftTasks.filter((task) => !persistedIds.has(task.id))];
   }, [draftTasks, persistedTasks]);
   const workspace = useDashboardWorkspace(todayTasks);
-  const [todayState, setTodayState] = useState<TodayOverviewState>("ready");
+  const today = bangkokDate();
+  const dueToday = useMemo(() => selectTodayTasks(todayTasks, today), [todayTasks, today]);
+  const reviewCount = todayTasks.filter((task) => task.workflowStage === "รอตรวจ").length;
+  const todayState: TodayOverviewState = dashboard.status === "loading" && !dashboard.state ? "loading" : dashboard.error && !dashboard.state ? "error" : "ready";
+  const [lastOwner, setLastOwner] = useState(() => { try { return localStorage.getItem("indy:last-owner") ?? ""; } catch { return ""; } });
   const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceItem>("overview");
   const [createInitialDate, setCreateInitialDate] = useState("");
   const [continuationNotice, setContinuationNotice] = useState<string | null>(null);
@@ -124,8 +131,19 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
     return () => { active = false; };
   }, [isLineComposerOpen]);
 
-  function continueSelectedTask() {
-    if (selectedTask) setContinuationNotice(`พร้อมทำงานต่อที่ขั้นตอน ${selectedTask.workflowStage}`);
+  async function changeSelectedStatus(status: Parameters<typeof moveContentToStatus>[2]) {
+    if (!selectedTask) return;
+    await dashboard.mutate((state) => moveContentToStatus(state, selectedTask.id, status, new Date().toISOString()));
+  }
+
+  async function toggleSelectedStep(stepId: string, done: boolean) {
+    if (!selectedTask) return;
+    await dashboard.mutate((state) => setProcessStepStatus(state, selectedTask.id, stepId, done ? "done" : "todo", new Date().toISOString()));
+  }
+
+  function rememberOwner(owner: string) {
+    setLastOwner(owner);
+    try { localStorage.setItem("indy:last-owner", owner); } catch { /* the default owner is a convenience only */ }
   }
 
   function requestLineDelivery() {
@@ -175,12 +193,13 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
       workflowStage: "วางแผน",
       lastWorkedAt: now,
       scheduledTime: input.plannedDate || "ยังไม่กำหนด",
-      caption: "",
+      caption: input.caption,
       assets: [],
       processSteps: [{ id: `step-${taskId}-prepare`, name: "เตรียมงาน", scheduledDate: input.plannedDate || null, status: "todo", order: 0 }],
       platformSchedules: input.platformSchedules,
     };
     await saveTask(task);
+    rememberOwner(input.owner);
     setDraftTasks((current) => [...current, task]);
     workspace.setCreateOpen(false);
     workspace.closeTask();
@@ -251,27 +270,37 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
     };
   }
 
-  return <AppShell activeItem={activeWorkspace} onNavigate={setActiveWorkspace}>
+  const refreshButton = <button type="button" className="header-refresh-button" disabled={refreshing || dashboard.status === "loading"} title="รับการแก้ไขล่าสุดจากคนอื่นในทีม" onClick={() => {
+    setRefreshing(true);
+    void dashboard.reload().catch(() => undefined).finally(() => setRefreshing(false));
+  }}>{refreshing ? "กำลังโหลด…" : "โหลดข้อมูลงานล่าสุด"}</button>;
+
+  return <AppShell activeItem={activeWorkspace} onNavigate={setActiveWorkspace} headerAside={refreshButton}>
     <main>
-      <section className="report-panel" aria-label="การอัปเดตข้อมูลระบบ">
-        <button type="button" disabled={refreshing || dashboard.status === "loading"} onClick={() => {
-          setRefreshing(true);
-          void dashboard.reload().catch(() => undefined).finally(() => setRefreshing(false));
-        }}>{refreshing ? "กำลังโหลด…" : "โหลดข้อมูลงานล่าสุด"}</button>
-        <small>โหมดประหยัด: ไม่โหลดซ้ำอัตโนมัติ กดเพื่อรับการแก้ไขจากคนอื่น · การบันทึกงานของคุณยังอัปเดตทันที</small>
-        {dashboard.error && <p role="alert">โหลดฐานข้อมูลงานไม่สำเร็จ ข้อมูลเดิมไม่ได้ถูกลบ — ยังเปิด Report ข้อมูลเชิงลึกและกดดึงจากโซเชียลได้</p>}
-      </section>
+      {dashboard.error && <p className="app-alert" role="alert">โหลดฐานข้อมูลงานไม่สำเร็จ ข้อมูลเดิมไม่ได้ถูกลบ — ยังเปิด Report ข้อมูลเชิงลึกและกดดึงจากโซเชียลได้</p>}
       {activeWorkspace === "overview" && <>
-        <TodayOverview tasks={todayTasks} state={todayState} onOpenTask={(task) => { setContinuationNotice(null); workspace.openTask(task.id); }} onResumeLatest={workspace.resumeLatest} onRetry={() => setTodayState("ready")} />
-        <div className="home-workflow-actions">
-          <button type="button" className="create-task-button" onClick={() => openCreateContent()}>สร้างชิ้นงานใหม่</button>
-          <button type="button" className="line-send-entry-button" onClick={requestLineDelivery}>ส่งงานใน LINE</button>
-        </div>
-        {selectedTask ? <section className="selected-workflow" aria-label={`ทำงานต่อกับ ${selectedTask.title}`}><p className="eyebrow">กำลังทำงานต่อ</p><h2>{selectedTask.title}</h2><p>ขั้นตอนปัจจุบัน: {selectedTask.workflowStage}</p><button type="button" className="continue-work-button" onClick={continueSelectedTask}>ดำเนินงานต่อที่ขั้นตอน {selectedTask.workflowStage}</button>{continuationNotice && <p className="continuation-notice" role="status">{continuationNotice}</p>}</section> : <p className="selected-workflow-hint" aria-live="polite">{continuationNotice ?? "เลือกงานเพื่อเปิดขั้นตอนการทำงาน"}</p>}
+        <TodayOverview
+          tasks={dueToday}
+          state={todayState}
+          today={today}
+          reviewCount={reviewCount}
+          onOpenTask={(task) => { setContinuationNotice(null); workspace.openTask(task.id); }}
+          onRetry={() => void dashboard.reload().catch(() => undefined)}
+          actions={<>
+            <button type="button" className="line-send-entry-button" onClick={requestLineDelivery}>ส่งงานใน LINE</button>
+            <button type="button" className="create-task-button" onClick={() => openCreateContent()}>สร้างชิ้นงานใหม่</button>
+          </>}
+        />
+        {continuationNotice && <p className="continuation-notice" role="status">{continuationNotice}</p>}
         <OverviewWorkspace />
-        <button type="button" className="create-task-button" onClick={() => setFullEditorOpen(true)}>เปิดตัวแก้ไขคอนเทนต์เต็ม</button>
-        <ContentEditorDialog mode={selectedTask ? "edit" : "create"} contentId={selectedTask?.id} open={isFullEditorOpen} onClose={() => setFullEditorOpen(false)} />
-        <TaskDetailDrawer task={selectedTask ?? null} onClose={() => workspace.closeTask()} />
+        <ContentEditorDialog mode="edit" contentId={selectedTask?.id} open={isFullEditorOpen && Boolean(selectedTask)} onClose={() => setFullEditorOpen(false)} />
+        <TaskDetailDrawer
+          task={selectedTask ?? null}
+          onClose={() => workspace.closeTask()}
+          onEdit={() => setFullEditorOpen(true)}
+          onChangeStatus={changeSelectedStatus}
+          onToggleStep={toggleSelectedStep}
+        />
         <LineSendComposer
           open={isLineComposerOpen}
           connectedRecipient={lineConnected}
@@ -350,7 +379,7 @@ function HomePageContent({ mediaBlobStore }: { mediaBlobStore: MediaBlobStore })
           renderSources={(filters) => <><ReportConnectionsPanel range={filters.range} /><details className="report-panel"><summary>นำเข้าและจับคู่กับปฏิทิน (ไม่จำเป็นสำหรับดูตัวเลข)</summary><ReportImportPanel /></details></>}
         />
       </>)}
-      <CreateContentModal open={workspace.isCreateOpen} onClose={() => { workspace.setCreateOpen(false); setCreateInitialDate(""); }} onCreate={createTask} categories={dashboard.state?.categories.map((category) => category.name) ?? []} formats={dashboard.state?.formats.map((format) => format.name) ?? []} ownerOptions={dashboard.state?.ownerOptions ?? []} initialDate={createInitialDate} allowedPlatformsByFormat={Object.fromEntries((dashboard.state?.formats ?? []).map((format) => [format.name, format.allowedPlatforms]))} />
+      <CreateContentModal open={workspace.isCreateOpen} onClose={() => { workspace.setCreateOpen(false); setCreateInitialDate(""); }} onCreate={createTask} categories={dashboard.state?.categories.map((category) => category.name) ?? []} formats={dashboard.state?.formats.map((format) => format.name) ?? []} ownerOptions={dashboard.state?.ownerOptions ?? []} defaultOwner={lastOwner} initialDate={createInitialDate} allowedPlatformsByFormat={Object.fromEntries((dashboard.state?.formats ?? []).map((format) => [format.name, format.allowedPlatforms]))} />
     </main>
   </AppShell>;
 }

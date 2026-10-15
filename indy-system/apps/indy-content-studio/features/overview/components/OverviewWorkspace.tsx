@@ -4,18 +4,18 @@ import { useMemo, useState } from "react";
 import { useDashboardData } from "../../data/DashboardDataProvider";
 import { selectMonthlyOverview } from "../overview-selectors";
 import { setCategoryMonthlyGoal } from "../overview-commands";
+import { bangkokDate } from "../../reports/report-dates";
 
 export function OverviewWorkspace() {
   const dashboard = useDashboardData();
-  const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [query, setQuery] = useState("");
+  const [month, setMonth] = useState(() => bangkokDate().slice(0, 7));
   const [goalDrafts, setGoalDrafts] = useState<Record<string, string>>({});
   const [goalError, setGoalError] = useState<string | null>(null);
   const [goalNotice, setGoalNotice] = useState<string | null>(null);
   const [savingGoal, setSavingGoal] = useState<string | null>(null);
   const view = useMemo(() => dashboard.state
-    ? selectMonthlyOverview(dashboard.state, { month, query, now: new Date().toISOString() })
-    : null, [dashboard.state, month, query]);
+    ? selectMonthlyOverview(dashboard.state, { month, query: "", now: new Date().toISOString() })
+    : null, [dashboard.state, month]);
 
   if (!view) return <section><h2>ภาพรวมรายเดือน</h2><p>กำลังโหลดข้อมูล…</p></section>;
 
@@ -40,10 +40,9 @@ export function OverviewWorkspace() {
   return (
     <section className="overview-workspace" aria-labelledby="monthly-overview-heading">
       <div className="workspace-heading-row">
-        <div><p className="eyebrow">MONTHLY OVERVIEW</p><h2 id="monthly-overview-heading">ภาพรวมรายเดือน</h2></div>
+        <h2 id="monthly-overview-heading">ภาพรวมรายเดือน</h2>
         <input type="month" aria-label="เดือนที่ดู" value={month} onChange={(event) => setMonth(event.target.value)} />
       </div>
-      <label className="workspace-search-inline">ค้นหาคอนเทนต์<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <div className="metric-grid">
         <article><span>เป้าหมาย</span><strong>{view.metrics.target}</strong></article>
         <article><span>วางแผน</span><strong>{view.metrics.planned}</strong></article>
@@ -51,7 +50,7 @@ export function OverviewWorkspace() {
         <article><span>เผยแพร่ครบ</span><strong>{view.metrics.fullyPublished}</strong></article>
       </div>
       <section className="category-progress-section" aria-labelledby="category-progress-heading">
-        <div><p className="eyebrow">CATEGORY PROGRESS</p><h3 id="category-progress-heading">ความคืบหน้าตามประเภทคอนเทนต์</h3><p>ตั้งเป้าหมายจำนวนชิ้นงานแยกตามหมวดได้เองในแต่ละเดือน</p></div>
+        <h3 id="category-progress-heading">ความคืบหน้าตามประเภทคอนเทนต์</h3>
         {goalError && <p className="overview-state" role="alert">{goalError}</p>}
         {goalNotice && <p className="overview-state" role="status">{goalNotice}</p>}
         {view.categoryProgress.length === 0
@@ -97,10 +96,7 @@ export function OverviewWorkspace() {
           </div>}
       </section>
       <div className="overview-ratios"><span>วิดีโอ {view.ratios.video.count} ({view.ratios.video.percent}%)</span><span>ภาพ {view.ratios.image.count} ({view.ratios.image.percent}%)</span></div>
-      <div className="overview-warnings"><span>ยังไม่มีแผน {view.warnings.missingPlan}</span><span>ยังไม่มี actual {view.warnings.missingActual}</span><span>receipt ไม่ครบ {view.warnings.unverifiedReceipts}</span></div>
-      {view.items.length === 0
-        ? <p className="overview-state">ไม่พบคอนเทนต์ในเดือนหรือคำค้นนี้</p>
-        : <table><thead><tr><th>คอนเทนต์</th></tr></thead><tbody>{view.items.map((item) => <tr key={item.id}><td>{item.title}</td></tr>)}</tbody></table>}
+      <div className="overview-warnings"><span>ยังไม่ลงวัน {view.warnings.missingPlan}</span><span>ยังไม่ยืนยันว่าโพสต์แล้ว {view.warnings.missingActual}</span><span>หลักฐานโพสต์ไม่ครบ {view.warnings.unverifiedReceipts}</span></div>
     </section>
   );
 }

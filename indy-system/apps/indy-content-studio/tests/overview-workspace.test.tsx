@@ -17,10 +17,12 @@ function item(id: string, categoryId: string, overrides: Partial<ContentItem> = 
 }
 
 describe("OverviewWorkspace", () => {
-  it("shows live metric cards and search", async () => {
+  it("shows live metric cards without a second search box or a repeat content table", async () => {
     render(<DashboardDataProvider repository={new MemoryDashboardRepository()}><OverviewWorkspace /></DashboardDataProvider>);
-    expect(await screen.findByRole("searchbox", { name: "ค้นหาคอนเทนต์" })).toBeVisible();
+    expect(await screen.findByText("วางแผน")).toBeVisible();
     expect(screen.getByText("ภาพรวมรายเดือน")).toBeVisible();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("lets the user set a per-category monthly target and reflects it in the progress ring", async () => {

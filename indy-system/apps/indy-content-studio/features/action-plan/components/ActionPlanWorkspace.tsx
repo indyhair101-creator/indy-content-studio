@@ -4,6 +4,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useDashboardData } from "../../data/DashboardDataProvider";
 import type { Platform, StepStatus } from "../../domain/types";
 import { formatBangkokSchedule } from "../../calendar/schedule-time";
+import { bangkokDate } from "../../reports/report-dates";
 import { addStandaloneActionTask, deleteProcessStep, deleteStandaloneActionTask, rescheduleProcessStep, rescheduleStandaloneActionTask, setProcessStepStatus, setStandaloneActionTaskStatus, updateProcessStep, updateStandaloneActionTask } from "../action-plan-commands";
 import { selectActionPlan, selectActionPlanEntries, type ActionPlanEntry } from "../action-plan-selectors";
 
@@ -49,7 +50,8 @@ function calendarRows(days: ActionDay[], mode: "week" | "month"): (ActionDay | n
 export function ActionPlanWorkspace() {
   const dashboard = useDashboardData();
   const [mode, setMode] = useState<"today" | "week" | "month">("today");
-  const [anchor, setAnchor] = useState(new Date().toISOString().slice(0, 10));
+  const [anchor, setAnchor] = useState(() => bangkokDate());
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [selectedDate, setSelectedDate] = useState(anchor);
   const [quickTitle, setQuickTitle] = useState("");
   const [isAdding, setIsAdding] = useState(false);
@@ -229,11 +231,12 @@ export function ActionPlanWorkspace() {
     );
   }
 
-  function renderSuggestions(title: string, steps: ActionStep[]) {
+  function renderSuggestions(title: string, steps: ActionStep[], limit = Infinity) {
     if (!steps.length) return null;
+    const shown = steps.slice(0, limit);
     return <section className="action-suggestion-group" aria-label={title} key={title}>
       <h3>{title}</h3>
-      <ul>{steps.map((step) => <li key={stepKey(step)}>
+      <ul>{shown.map((step) => <li key={stepKey(step)}>
         <span className="action-suggestion-circle" aria-hidden="true" />
         <span className="action-suggestion-copy"><strong>{step.name}</strong><small>{step.kind === "standalone" ? "งานทั่วไป" : step.contentTitle}{step.scheduledDate ? ` · ${step.scheduledDate}` : ""}</small>{step.kind === "content-step" && <small className="action-step-schedule">{publicationScheduleLabel(step)}</small>}</span>
         <button type="button" aria-label={`เพิ่มเข้าวันนี้ ${step.name}${step.kind === "content-step" ? ` — ${step.contentTitle}` : ""}`} disabled={pendingSuggestion === stepKey(step)} onClick={() => void addSuggestion(step)}>+</button>
@@ -244,7 +247,7 @@ export function ActionPlanWorkspace() {
   return (
     <section className="action-plan-workspace" aria-labelledby="action-plan-heading">
       <div className="workspace-heading-row">
-        <div><p className="eyebrow">INDY / ACTION PLAN</p><h1 id="action-plan-heading">Action Plan</h1></div>
+        <div><h1 id="action-plan-heading">Action Plan</h1></div>
         <div className="action-plan-view-toggle" role="group" aria-label="มุมมอง Action Plan">
           <button type="button" aria-pressed={mode === "today"} onClick={() => setMode("today")}>วันนี้</button>
           <button type="button" aria-pressed={mode === "week"} onClick={() => setMode("week")}>สัปดาห์</button>
@@ -271,7 +274,7 @@ export function ActionPlanWorkspace() {
 
       {mode === "today" ? <div className="action-today-layout">
         <section className="action-today-main" role="region" aria-label="งานของวันที่เลือก">
-          <div className="action-today-heading"><div><p className="eyebrow">MY DAY / ACTION PLAN</p><h2>วันของฉัน</h2><p>เลือกงานที่ต้องโฟกัส แล้วติ๊กเมื่อทำเสร็จ</p></div><span>{anchor}</span></div>
+          <div className="action-today-heading"><div><h2>วันของฉัน</h2></div><span>{anchor}</span></div>
           <form className="action-quick-add" onSubmit={(event) => void addQuickTask(event)}>
             <span aria-hidden="true">○</span>
             <input type="text" aria-label="เพิ่มงานทั่วไป" placeholder="เพิ่มงานทั่วไป เช่น ถ่ายรูป หรือซื้อของ" value={quickTitle} onChange={(event) => setQuickTitle(event.target.value)} disabled={isAdding} />
@@ -286,10 +289,11 @@ export function ActionPlanWorkspace() {
             : <p className="action-plan-empty">ยังไม่มีงานในวันนี้ เพิ่มงานหรือเลือกจากคำแนะนำได้เลย</p>}
         </section>
         <aside className="action-today-suggestions" role="region" aria-label="คำแนะนำ">
-          <div className="action-suggestions-heading"><div><p className="eyebrow">NEXT UP</p><h2>คำแนะนำ</h2></div><span>{suggestions.length} งาน</span></div>
+          <div className="action-suggestions-heading"><div><h2>คำแนะนำ</h2></div><span>{suggestions.length} งาน</span></div>
           {renderSuggestions("ค้างจากวันก่อน", overdue)}
           {renderSuggestions("ยังไม่กำหนดวัน", unscheduled)}
-          {renderSuggestions("วันถัดไป", upcoming)}
+          {renderSuggestions("วันถัดไป", upcoming, showAllUpcoming ? Infinity : 3)}
+          {upcoming.length > 3 && <button type="button" className="action-show-all" onClick={() => setShowAllUpcoming((current) => !current)}>{showAllUpcoming ? "ย่อรายการ" : `ดูวันถัดไปทั้งหมด (${upcoming.length})`}</button>}
           {suggestions.length === 0 && <p className="action-plan-empty">ไม่มีงานค้างให้เพิ่มในวันนี้</p>}
         </aside>
       </div> : <>
@@ -321,7 +325,7 @@ export function ActionPlanWorkspace() {
 
       <section className="action-day-detail" aria-labelledby="action-selected-day-heading">
         <div className="action-day-detail-heading">
-          <div><p className="eyebrow">เช็กลิสต์ประจำวัน</p><h2 id="action-selected-day-heading">{selectedDay?.date ?? anchor}</h2></div>
+          <div><h2 id="action-selected-day-heading">{selectedDay?.date ?? anchor}</h2></div>
           <span>{selectedDay?.steps.length ?? 0} ขั้นตอน</span>
         </div>
         {selectedDay?.steps.length

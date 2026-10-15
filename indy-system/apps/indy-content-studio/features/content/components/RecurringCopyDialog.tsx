@@ -47,7 +47,7 @@ export function RecurringCopyDialog({ content, onClose, onCopied }: {
 
   return <AccessibleDialog labelledBy="recurring-copy-heading" onClose={onClose}>
     <div className="workspace-heading-row">
-      <div><p className="eyebrow">CONTENT COPY</p><h2 id="recurring-copy-heading">คัดลอกสำเนา</h2></div>
+      <div><h2 id="recurring-copy-heading">คัดลอกสำเนา</h2></div>
       <button type="button" data-dialog-initial-focus aria-label="ปิดหน้าต่างคัดลอกสำเนา" onClick={onClose}>×</button>
     </div>
     <p>คอนเทนต์ต้นฉบับ: <strong>{content.title}</strong></p>

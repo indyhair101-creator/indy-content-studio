@@ -78,7 +78,7 @@ export function InsightsReportWorkspace({ onOpenContent, renderAnalysis, renderS
     return <table className="report-table"><thead><tr><th>กลุ่ม</th><th>คอนเทนต์</th><th>โพสต์ (ขนาดตัวอย่าง)</th><th>{labels[metric]}</th></tr></thead><tbody>{[...buckets].map(([name, items]) => <tr key={name}><th>{name}</th><td>{new Set(items.map(item => item.content.id)).size}</td><td>{items.length}</td><td>{number(aggregateInsightMetric(items, metric))}</td></tr>)}</tbody></table>;
   };
   return <section className="report-workspace">
-    <header className="report-header"><div><span className="insight-eyebrow">INDY · CONTENT INTELLIGENCE</span><h2>Report ข้อมูลเชิงลึก</h2><p>เห็นผลจากทุกโพสต์ เรียนรู้จากตัวเลข แล้ววางแผนคอนเทนต์ต่อไป</p></div>{renderActions?.(activeFilters)}</header>
+    <header className="report-header"><div><h2>Report ข้อมูลเชิงลึก</h2></div>{renderActions?.(activeFilters)}</header>
     <ReportFilterBar filters={filters} onChange={setFilters} state={state} />
     {renderSources?.(activeFilters)}
     <nav className="report-tabs" aria-label="ส่วนรายงานข้อมูลเชิงลึก">{tabs.filter(([id]) => (id !== "ai" || renderAnalysis) && (id !== "saved" || renderSaved)).map(([id, label]) => <button type="button" key={id} aria-pressed={tab === id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</nav>

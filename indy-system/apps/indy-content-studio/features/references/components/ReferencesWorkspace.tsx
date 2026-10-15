@@ -78,7 +78,7 @@ export function ReferencesWorkspace({ blobStore }: { blobStore?: MediaBlobStore 
 
   return <section className="workspace-surface references-workspace" aria-labelledby="references-heading">
     <div className="workspace-heading-row">
-      <div><p className="eyebrow">INDY / REFERENCES</p><h1 id="references-heading">Reference และไอเดีย</h1><p>เก็บลิงก์ ภาพ และวิดีโอไว้เป็นอัลบั้ม หยิบไอเดียมาใช้ได้ง่าย</p></div>
+      <div><h1 id="references-heading">Reference และไอเดีย</h1></div>
       <div className="reference-toolbar-actions">
         <button type="button" onClick={() => { setError(null); setAlbumEditor({ id: `ref-album-${crypto.randomUUID()}`, name: "" }); }}>สร้างอัลบั้ม</button>
         <button type="button" onClick={() => { setError(null); setEditor({ reference: null, albumId: null }); }}>เพิ่ม Reference</button>

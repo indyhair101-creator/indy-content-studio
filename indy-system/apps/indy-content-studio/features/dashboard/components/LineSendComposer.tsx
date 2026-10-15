@@ -117,7 +117,7 @@ export function LineSendComposer({ open, authenticatedAdmin, connectedRecipient,
       <section className="line-send-composer motion-material-surface motion-modal" role="dialog" aria-modal="true" aria-labelledby="line-composer-heading">
         <div className="create-modal-heading">
           <div>
-            <p className="eyebrow">LINE OA · INDY OS Alerts</p>
+            
             <h2 id="line-composer-heading">ส่งงานใน LINE</h2>
           </div>
           <button type="button" className="drawer-close-button" onClick={onCancel} aria-label="ปิดการส่ง LINE" disabled={isSubmitting}>×</button>

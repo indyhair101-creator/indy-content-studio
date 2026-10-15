@@ -28,7 +28,7 @@ export function ProductionBoardWorkspace() {
 
   return <section className="production-workspace" aria-labelledby="production-workspace-heading">
     <div className="workspace-heading-row">
-      <div><p className="eyebrow">INDY / PRODUCTION</p><h1 id="production-workspace-heading">บอร์ดการผลิต</h1><p>ลากงานผ่านสถานะการผลิตและตรวจเงื่อนไขก่อนเผยแพร่</p></div>
+      <div><h1 id="production-workspace-heading">บอร์ดการผลิต</h1></div>
       <div className="production-filters" aria-label="ตัวกรองบอร์ดการผลิต">
         <label>ค้นหา<input aria-label="ค้นหาบอร์ดการผลิต" type="search" value={filters.query ?? ""} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} /></label>
         <div className="production-owner-filter" role="group" aria-label="กรองผู้รับผิดชอบ">

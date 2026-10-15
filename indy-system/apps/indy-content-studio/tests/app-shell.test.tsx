@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "../app/AppShell";
 
 describe("AppShell", () => {
-  it("keeps full navigation labels available without a collapsed-only mode", () => {
+  it("shows six labelled destinations without a collapsed-only mode", () => {
     render(
       <AppShell>
         <main>content</main>
@@ -13,39 +13,39 @@ describe("AppShell", () => {
     const navigation = screen.getByRole("navigation", { name: "เมนูแดชบอร์ด" });
     expect(navigation).toHaveClass("dashboard-nav");
     expect(navigation).not.toHaveAttribute("data-collapsible");
-    expect(within(navigation).getByText("ภาพรวมและเป้าหมาย")).toBeVisible();
-    expect(within(navigation).getByText("ตั้งค่าและข้อมูล")).toBeVisible();
+    expect(within(navigation).getAllByRole("button").map((button) => button.textContent)).toEqual(["วันนี้", "ปฏิทิน", "งานผลิต", "คลัง", "รายงาน", "ตั้งค่า"]);
+    expect(screen.getByRole("button", { name: "วันนี้" })).toHaveAttribute("data-tooltip", "วันนี้");
   });
 
-  it("exposes labelled rail navigation and a workspace search field", () => {
-    render(
-      <AppShell>
-        <main>content</main>
-      </AppShell>,
-    );
+  it("does not render header controls that do nothing", () => {
+    render(<AppShell><main>content</main></AppShell>);
 
-    expect(
-      screen.getByRole("button", { name: "ภาพรวมและเป้าหมาย" }),
-    ).toHaveAttribute("data-tooltip", "ภาพรวมและเป้าหมาย");
-    expect(screen.getByRole("button", { name: "บอร์ดการผลิต" })).toBeVisible();
-    expect(
-      screen.getByPlaceholderText("ค้นหาไฟล์ งาน หรือไอเดีย"),
-    ).toBeVisible();
+    expect(screen.queryByPlaceholderText("ค้นหาไฟล์ งาน หรือไอเดีย")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "การแจ้งเตือน" })).not.toBeInTheDocument();
   });
 
-  it("marks the selected workspace and notifies the page when a rail destination is chosen", () => {
+  it("marks the selected destination, shows its sub-tabs and notifies the page", () => {
     const selected: string[] = [];
 
     render(
-      <AppShell activeItem="overview" onNavigate={(item) => selected.push(item)}>
+      <AppShell activeItem="references" onNavigate={(item) => selected.push(item)} headerAside={<button type="button">โหลดข้อมูลงานล่าสุด</button>}>
         <main>content</main>
       </AppShell>,
     );
 
-    const productionBoard = screen.getByRole("button", { name: "บอร์ดการผลิต" });
-    fireEvent.click(productionBoard);
+    expect(screen.getByRole("button", { name: "คลัง" })).toHaveAttribute("aria-current", "page");
+    const tabs = screen.getByRole("navigation", { name: "หน้าย่อยใน คลัง" });
+    expect(within(tabs).getByRole("button", { name: "Reference และไอเดีย" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "โหลดข้อมูลงานล่าสุด" })).toBeVisible();
 
-    expect(selected).toEqual(["production-board"]);
-    expect(screen.getByRole("button", { name: "ภาพรวมและเป้าหมาย" })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(within(tabs).getByRole("button", { name: "คลังสื่อ" }));
+    fireEvent.click(screen.getByRole("button", { name: "งานผลิต" }));
+
+    expect(selected).toEqual(["media-library", "production-board"]);
+  });
+
+  it("hides the sub-tab bar for single-page destinations", () => {
+    render(<AppShell activeItem="calendar"><main>content</main></AppShell>);
+    expect(screen.queryByRole("navigation", { name: /หน้าย่อยใน/ })).not.toBeInTheDocument();
   });
 });

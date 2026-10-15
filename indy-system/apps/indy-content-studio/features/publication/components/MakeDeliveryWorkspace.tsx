@@ -27,7 +27,7 @@ export function MakeDeliveryWorkspace() {
   }
 
   return <section className="make-delivery-workspace" aria-labelledby="make-delivery-heading">
-    <div className="workspace-heading-row"><div><p className="eyebrow">INDY / MAKE</p><h1 id="make-delivery-heading">ส่งโพสต์ผ่าน Make</h1><p>คิวนี้เกิดจากงานที่ Final แล้ว และแสดงผลแยกตามช่องทาง</p></div></div>
+    <div className="workspace-heading-row"><div><h1 id="make-delivery-heading">ส่งโพสต์ผ่าน Make</h1><p>คิวนี้เกิดจากงานที่ Final แล้ว และแสดงผลแยกตามช่องทาง</p></div></div>
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     <section aria-labelledby="publication-queue-heading"><h2 id="publication-queue-heading">คิวเผยแพร่</h2>{dashboard.state.publicationAttempts.length === 0 ? <p className="empty-state">ยังไม่มีคิวเผยแพร่จากงาน Final</p> : <ul>{dashboard.state.publicationAttempts.map((attempt) => { const content = dashboard.state?.contents.find((item) => item.id === attempt.contentId); return <li key={attempt.id}><strong>{content?.title ?? attempt.contentId}</strong><span>{platformLabels[attempt.platform]} · {attempt.publishAt} · {statusLabels[attempt.status] ?? attempt.status}</span>{attempt.status === "local-plan" || attempt.status === "failed" ? <button type="button" onClick={() => void deliver(attempt.id)}>{attempt.status === "failed" ? "ลองส่งอีกครั้ง" : "ส่งเข้า Make"}</button> : null}{attempt.status === "published" && (attempt.receiptUrl || attempt.providerPublicationId) ? <a href={attempt.receiptUrl ?? "#"} target="_blank" rel="noreferrer">ดูหลักฐานโพสต์</a> : null}</li>; })}</ul>}</section>
   </section>;

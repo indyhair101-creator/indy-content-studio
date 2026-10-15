@@ -8,7 +8,7 @@ describe("dashboard state coverage", () => {
     ["empty", "ยังไม่มีงานสำหรับวันนี้"],
     ["error", "ลองใหม่"],
   ] as const)("keeps the overview useful when it is %s", (state, expectedText) => {
-    render(<TodayOverview tasks={[]} state={state} onOpenTask={vi.fn()} onResumeLatest={vi.fn()} onRetry={vi.fn()} />);
+    render(<TodayOverview tasks={[]} state={state} today="2026-10-15" reviewCount={0} onOpenTask={vi.fn()} onRetry={vi.fn()} />);
 
     expect(screen.getByText(expectedText)).toBeVisible();
   });

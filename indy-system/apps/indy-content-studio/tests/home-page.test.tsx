@@ -5,6 +5,7 @@ import { MemoryDashboardRepository } from "../features/data/memory-dashboard-rep
 import { createEmptyDashboardState } from "../features/domain/create-empty-state";
 import type { ContentItem } from "../features/domain/types";
 import type { MediaBlobStore } from "../features/media/media-blob-store";
+import { bangkokDate } from "../features/reports/report-dates";
 import { uploadMediaToBlob } from "../features/media/blob-media-upload";
 
 vi.mock("../features/media/blob-media-upload", () => ({ uploadMediaToBlob: vi.fn() }));
@@ -18,33 +19,40 @@ class TestBlobStore implements MediaBlobStore {
 
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
-function seededRepository() {
+function seededRepository(overrides: Partial<ContentItem> = {}) {
   const now = "2026-09-18T10:00:00.000Z";
-  const content: ContentItem = { id: "reels", title: "ตัดต่อคลิป Reels เทคนิคทรงผม", categoryId: "category-knowledge", formatId: "format-video", owner: "ทีมคอนเทนต์", objective: "awareness", priority: "urgent", plannedWorkAt: "10:30", lastWorkedAt: now, readyDate: null, productionStatus: "editing", assetIds: [], processSteps: [], caption: "", captionSource: null, schedules: [], referenceIds: [], notes: "", localApproval: "pending", lineReview: { status: "not-sent", activeCycleId: null, reviewCode: null, providerReceipts: [], lastEventAt: null, history: [] }, createdAt: now, updatedAt: now, deletedAt: null };
+  const content: ContentItem = { id: "reels", title: "ตัดต่อคลิป Reels เทคนิคทรงผม", categoryId: "category-knowledge", formatId: "format-video", owner: "ทีมคอนเทนต์", objective: "awareness", priority: "urgent", plannedWorkAt: "10:30", lastWorkedAt: now, readyDate: null, productionStatus: "editing", assetIds: [], processSteps: [], caption: "", captionSource: null, schedules: [], referenceIds: [], notes: "", localApproval: "pending", lineReview: { status: "not-sent", activeCycleId: null, reviewCode: null, providerReceipts: [], lastEventAt: null, history: [] }, createdAt: now, updatedAt: now, deletedAt: null, ...overrides };
   return new MemoryDashboardRepository({ ...createEmptyDashboardState(), contents: [content] });
 }
 
 describe("HomePage", () => {
-  it("keeps Today as the only page heading and exposes the selected task continuation", async () => {
-    render(<HomePage repository={seededRepository()} />);
+  it("lists only today's open work and lets the user move it forward from the drawer", async () => {
+    const repository = seededRepository({ plannedWorkAt: bangkokDate(), processSteps: [{ id: "cut", name: "ตัดต่อ", scheduledDate: bangkokDate(), status: "doing", order: 0 }] });
+    await repository.write({ ...(await repository.read()), contents: [...(await repository.read()).contents, { ...(await repository.read()).contents[0], id: "next-month", title: "งานเดือนหน้า", plannedWorkAt: "2099-01-01", processSteps: [] }] });
+    render(<HomePage repository={repository} />);
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-
     fireEvent.click(await screen.findByRole("button", { name: /ตัดต่อคลิป Reels เทคนิคทรงผม/ }));
+    expect(screen.queryByRole("button", { name: /งานเดือนหน้า/ })).not.toBeInTheDocument();
 
-    expect(screen.getByRole("region", { name: "ทำงานต่อกับ ตัดต่อคลิป Reels เทคนิคทรงผม" })).toBeVisible();
-    expect(screen.getByText("ขั้นตอนปัจจุบัน: ตัดต่อ")).toBeVisible();
-    expect(screen.getByRole("button", { name: "ดำเนินงานต่อที่ขั้นตอน ตัดต่อ" })).toBeVisible();
+    const drawer = screen.getByRole("dialog", { name: "รายละเอียด ตัดต่อคลิป Reels เทคนิคทรงผม" });
+    fireEvent.change(within(drawer).getByLabelText("สถานะการผลิต"), { target: { value: "review" } });
+    await waitFor(async () => expect((await repository.read()).contents[0].productionStatus).toBe("review"));
+    fireEvent.click(within(drawer).getByRole("checkbox", { name: /ตัดต่อ/ }));
+    await waitFor(async () => expect((await repository.read()).contents[0].processSteps[0].status).toBe("done"));
+
+    fireEvent.click(within(drawer).getByRole("button", { name: "แก้ไขรายละเอียดทั้งหมด" }));
+    expect(await screen.findByLabelText("ชื่อคอนเทนต์")).toHaveValue("ตัดต่อคลิป Reels เทคนิคทรงผม");
   });
 
-  it("creates planning work with a date only and without LINE media fields", async () => {
+  it("creates planning work with its caption and without LINE media fields", async () => {
     const repository = new MemoryDashboardRepository();
     const { unmount } = render(<HomePage repository={repository} mediaBlobStore={new TestBlobStore()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "สร้างชิ้นงานใหม่" }));
     expect(screen.queryByLabelText("ไฟล์แนบ")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("แคปชัน")).not.toBeInTheDocument();
     await screen.findByRole("option", { name: "colofill" });
+    fireEvent.change(screen.getByLabelText("แคปชัน"), { target: { value: "เปิดรับสมัครแล้ว" } });
     fireEvent.change(screen.getByLabelText("ชื่อชิ้นงาน"), { target: { value: "งานตามแผน" } });
     fireEvent.change(screen.getByLabelText("วันที่ลงในปฏิทิน"), { target: { value: "2026-09-23" } });
     fireEvent.change(screen.getByLabelText("ผู้รับผิดชอบ"), { target: { value: "colofill" } });
@@ -52,14 +60,15 @@ describe("HomePage", () => {
 
     await waitFor(async () => {
       const state = await repository.read();
-      expect(state.contents[0]).toMatchObject({ title: "งานตามแผน", plannedWorkAt: "2026-09-23", caption: "", assetIds: [] });
+      expect(state.contents[0]).toMatchObject({ title: "งานตามแผน", plannedWorkAt: "2026-09-23", caption: "เปิดรับสมัครแล้ว", assetIds: [] });
       expect(state.contents[0].processSteps).toEqual([{ id: expect.any(String), name: "เตรียมงาน", scheduledDate: "2026-09-23", status: "todo", order: 0 }]);
     });
     expect(screen.queryByRole("dialog", { name: /รายละเอียดงาน/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "ปฏิทินคอนเทนต์" }));
+    fireEvent.click(screen.getByRole("button", { name: "ปฏิทิน" }));
     fireEvent.change(await screen.findByLabelText("เดือนปฏิทิน"), { target: { value: "2026-09" } });
     const dayCell = await screen.findByLabelText("2026-09-23");
     expect(within(dayCell).getByText("งานตามแผน")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "วันนี้" }));
     fireEvent.click(screen.getByRole("button", { name: "Action Plan" }));
     fireEvent.change(screen.getByLabelText("วันที่อ้างอิง"), { target: { value: "2026-09-23" } });
     expect(await screen.findByRole("checkbox", { name: "ทำเสร็จ เตรียมงาน — งานตามแผน" })).toBeVisible();
@@ -141,11 +150,11 @@ describe("HomePage", () => {
   it("opens the working calendar workspace from the rail", async () => {
     render(<HomePage repository={new MemoryDashboardRepository()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "ปฏิทินคอนเทนต์" }));
+    fireEvent.click(screen.getByRole("button", { name: "ปฏิทิน" }));
 
     expect(await screen.findByLabelText("เดือนปฏิทิน")).toBeVisible();
     expect(screen.getByRole("heading", { name: "ปฏิทินคอนเทนต์" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "ปฏิทินคอนเทนต์" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "ปฏิทิน" })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not offer the LINE upload action when Blob health reports disconnected", async () => {
@@ -171,7 +180,7 @@ describe("HomePage", () => {
     const repository = new MemoryDashboardRepository();
     render(<HomePage repository={repository} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "ปฏิทินคอนเทนต์" }));
+    fireEvent.click(screen.getByRole("button", { name: "ปฏิทิน" }));
     fireEvent.click(await screen.findByRole("button", { name: "สร้างชิ้นงานใหม่" }));
     expect(await screen.findByRole("dialog", { name: "สร้างคอนเทนต์" })).toBeVisible();
 
@@ -213,7 +222,7 @@ describe("HomePage", () => {
   it("shows the existing production board as its own workspace", () => {
     render(<HomePage repository={new MemoryDashboardRepository()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "บอร์ดการผลิต" }));
+    fireEvent.click(screen.getByRole("button", { name: "งานผลิต" }));
 
     expect(screen.getByRole("heading", { name: "บอร์ดการผลิต" })).toBeVisible();
     expect(screen.queryByRole("heading", { level: 1, name: "วันนี้" })).not.toBeInTheDocument();
