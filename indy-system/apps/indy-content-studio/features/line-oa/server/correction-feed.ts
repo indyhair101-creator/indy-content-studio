@@ -27,13 +27,13 @@ export async function listRecentCorrections({ since, execute = createNeonExecuto
     execute(
       `SELECT e.id, r.content_id, e.comment, e.occurred_at
          FROM line_review_events e JOIN line_reviews r ON r.review_code = e.review_code
-        WHERE e.event = 'correction-requested' AND e.occurred_at > $1::timestamptz
+        WHERE e.event = 'correction-requested' AND date_trunc('milliseconds', e.occurred_at) > $1::timestamptz
         ORDER BY e.occurred_at DESC LIMIT $2`,
       [cursor, LIMIT],
     ),
     execute(
       `SELECT id, comment, occurred_at FROM line_unmatched_feedback
-        WHERE occurred_at > $1::timestamptz ORDER BY occurred_at DESC LIMIT $2`,
+        WHERE date_trunc('milliseconds', occurred_at) > $1::timestamptz ORDER BY occurred_at DESC LIMIT $2`,
       [cursor, LIMIT],
     ),
   ]);

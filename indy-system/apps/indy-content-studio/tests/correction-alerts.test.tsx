@@ -69,6 +69,23 @@ describe("correction alerts", () => {
     expect(playChime).toHaveBeenCalledOnce();
   });
 
+  it("rings only once for a correction even if the server keeps returning it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    localStorage.setItem("indy:corrections-seen-at", "2026-10-15T03:00:00.000Z");
+    const fetcher = vi.fn(async () => Response.json({ corrections: [correction] }));
+    vi.stubGlobal("fetch", fetcher);
+
+    render(<Probe intervalMs={1000} />);
+    expect(await screen.findByText("มีงานแก้ส่งมา!")).toBeVisible();
+    // Simulate a stale cursor so the time filter alone would let the row through again.
+    localStorage.setItem("indy:corrections-seen-at", "2026-10-15T03:00:00.000Z");
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+
+    expect(fetcher.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(playChime).toHaveBeenCalledOnce();
+    expect(screen.getAllByText("มีงานแก้ส่งมา!")).toHaveLength(1);
+  });
+
   it("raises a desktop notification when the tab is in the background and permission is granted", async () => {
     localStorage.setItem("indy:corrections-seen-at", "2026-10-15T03:00:00.000Z");
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ corrections: [correction] })));

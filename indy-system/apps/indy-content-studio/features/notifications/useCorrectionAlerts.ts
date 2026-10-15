@@ -7,6 +7,11 @@ import { playChime, unlockChime } from "./chime";
 export const CORRECTION_CHECK_INTERVAL_MS = 2 * 60 * 1000;
 const CURSOR_KEY = "indy:corrections-seen-at";
 const SOUND_KEY = "indy:corrections-sound";
+const ANNOUNCED_KEY = "indy:corrections-announced";
+
+function announcedIds(): Set<string> {
+  try { return new Set(JSON.parse(readStorage(ANNOUNCED_KEY) ?? "[]") as string[]); } catch { return new Set(); }
+}
 
 export type NotificationPermissionState = NotificationPermission | "unsupported";
 
@@ -62,8 +67,11 @@ export function useCorrectionAlerts({ enabled = true, intervalMs = CORRECTION_CH
     } catch { return; }
     if (!response.ok) return;
     const payload = await response.json().catch(() => ({})) as { corrections?: RecentCorrection[] };
-    const fresh = (payload.corrections ?? []).filter((item) => item.receivedAt > since);
+    // Each correction rings once, ever: by time cursor and by id, so a repeated server row stays silent.
+    const announced = announcedIds();
+    const fresh = (payload.corrections ?? []).filter((item) => item.receivedAt > since && !announced.has(item.id));
     if (!fresh.length) return;
+    writeStorage(ANNOUNCED_KEY, JSON.stringify([...fresh.map((item) => item.id), ...announced].slice(0, 100)));
     writeStorage(CURSOR_KEY, fresh.reduce((latest, item) => item.receivedAt > latest ? item.receivedAt : latest, since));
     announce(fresh);
   }, [announce]);
