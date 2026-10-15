@@ -34,14 +34,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "#f5f5f2" }}>
-      <form onSubmit={submit} style={{ width: "min(100%, 400px)", display: "grid", gap: 16, padding: 32, borderRadius: 20, background: "white", boxShadow: "0 18px 55px #18201812" }}>
-        <div>
-          <p style={{ margin: 0, color: "#58745c", fontSize: 13, fontWeight: 700, letterSpacing: ".08em" }}>INDY CONTENT STUDIO</p>
-          <h1 style={{ margin: "10px 0 6px", fontSize: 26 }}>เข้าสู่ระบบ</h1>
-          <p style={{ margin: 0, color: "#68716a" }}>กรุณายืนยันตัวตนผู้ดูแลเพื่อดำเนินการต่อ</p>
+    <main className="login-screen">
+      <form className="login-board" onSubmit={submit}>
+        <div className="login-heading">
+          <span className="login-seal" aria-hidden="true">INDY</span>
+          <p className="login-kicker">INDY CONTENT STUDIO</p>
+          <h1>เข้าสู่ระบบ</h1>
+          <p>กรุณายืนยันตัวตนผู้ดูแลเพื่อดำเนินการต่อ</p>
         </div>
-        <label style={{ display: "grid", gap: 8, fontWeight: 600 }}>
+        <label className="login-field">
           รหัสผ่านผู้ดูแล
           <input
             autoComplete="current-password"
@@ -50,11 +51,10 @@ export default function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
-            style={{ padding: "12px 14px", border: "1px solid #d8ddd7", borderRadius: 10, font: "inherit" }}
           />
         </label>
-        {error && <p role="alert" style={{ margin: 0, color: "#a12f2f" }}>{error}</p>}
-        <button disabled={pending || !password} type="submit" style={{ padding: "12px 16px", border: 0, borderRadius: 10, background: "#315b3a", color: "white", font: "inherit", fontWeight: 700, cursor: pending ? "wait" : "pointer" }}>
+        {error && <p className="login-error" role="alert">{error}</p>}
+        <button className="login-submit" disabled={pending || !password} type="submit" aria-busy={pending}>
           {pending ? "กำลังตรวจสอบ…" : "เข้าสู่ระบบ"}
         </button>
       </form>

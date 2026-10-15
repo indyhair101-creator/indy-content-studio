@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { GameIcon } from "./GameIcon";
 
 export const navigationItems = [
   { id: "overview", label: "ภาพรวมและเป้าหมาย", icon: "⌂" },
@@ -23,10 +24,13 @@ export function AppShell({ children, activeItem = "overview", onNavigate }: { ch
   return (
     <div className="app-shell">
       <nav className="dashboard-nav" aria-label="เมนูแดชบอร์ด">
-        <div className="rail-brand" aria-label="INDY Content Studio">I</div>
-        {navigationItems.map(({ id, label, icon }) => (
+        <div className="rail-brand" aria-label="INDY Content Studio">
+          <span className="rail-brand-seal" aria-hidden="true">INDY</span>
+          <span className="rail-brand-name" aria-hidden="true">Content Studio</span>
+        </div>
+        {navigationItems.map(({ id, label }) => (
           <button key={id} type="button" className="rail-button" aria-label={label} aria-current={activeItem === id ? "page" : undefined} data-tooltip={label} onClick={() => onNavigate?.(id)}>
-            <span aria-hidden="true">{icon}</span>
+            <span className="rail-icon" aria-hidden="true"><GameIcon name={id} /></span>
             <span className="rail-label">{label}</span>
           </button>
         ))}
@@ -35,11 +39,11 @@ export function AppShell({ children, activeItem = "overview", onNavigate }: { ch
         <header className="command-capsule">
           <div className="profile-chip" aria-label="โปรไฟล์ INDY"><span aria-hidden="true">IN</span><span>INDY</span></div>
           <label className="workspace-search">
-            <span aria-hidden="true">⌕</span>
+            <span className="workspace-search-icon" aria-hidden="true"><GameIcon name="search" size={22} /></span>
             <span className="sr-only">ค้นหา</span>
             <input placeholder="ค้นหาไฟล์ งาน หรือไอเดีย" type="search" />
           </label>
-          <button className="notification-button" type="button" aria-label="การแจ้งเตือน"><span aria-hidden="true">♧</span></button>
+          <button className="notification-button" type="button" aria-label="การแจ้งเตือน"><GameIcon name="bell" size={24} /></button>
         </header>
         {children}
       </div>
